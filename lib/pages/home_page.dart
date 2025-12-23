@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'registro_piloto_page.dart';
 import 'controle_janela_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -55,8 +56,10 @@ class HomePage extends StatelessWidget {
                     icon: Icons.person_add_alt_1,
                     color: const Color(0xFF27AE60),
                     onTap: () {
-                      // Caminho: Navigator para tela de cadastro
-                      print("Indo para Cadastro...");
+                        Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegistroPilotoPage()),
+                      );
                     },
                   ),
                   const SizedBox(height: 20),

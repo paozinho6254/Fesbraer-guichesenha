@@ -13,6 +13,10 @@ class ControleJanelaPage extends StatelessWidget {
     int escalaCount = 0;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("Nova Janela de Voo", style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
@@ -36,7 +40,7 @@ class ControleJanelaPage extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 50),
 
             // Botões de Categoria
             _buildCategoryButton(
@@ -109,7 +113,7 @@ class ControleJanelaPage extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
