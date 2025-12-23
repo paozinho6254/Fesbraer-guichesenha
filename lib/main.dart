@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'pages/home_page.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(const ProjetosVooApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class ProjetosVooApp extends StatelessWidget {
+  const ProjetosVooApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
+    return MaterialApp(
+      title: 'Fesbraer Controle',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        primarySwatch: Colors.blue,
       ),
+      home: const HomePage(),
     );
   }
 }
