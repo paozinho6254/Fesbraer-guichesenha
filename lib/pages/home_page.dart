@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'controle_janela_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -66,7 +67,10 @@ class HomePage extends StatelessWidget {
                     color: const Color(0xFF2980B9), // Azul para controle
                     onTap: () {
                       // Caminho: Navigator para tela de controle
-                      print("Indo para Janelas...");
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ControleJanelaPage()),
+                      );
                     },
                   ),
                 ],
