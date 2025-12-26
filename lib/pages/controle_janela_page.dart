@@ -1,3 +1,4 @@
+import 'package:fesbraerguichesenha/pages/selecao_pilotos_page.dart';
 import 'package:flutter/material.dart';
 
 class ControleJanelaPage extends StatelessWidget {
@@ -14,7 +15,10 @@ class ControleJanelaPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Nova Janela de Voo", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Nova Janela de Voo",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: Padding(
@@ -34,7 +38,7 @@ class ControleJanelaPage extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const Text(
               "Selecione a categoria para escolher os pilotos",
               style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -47,16 +51,36 @@ class ControleJanelaPage extends StatelessWidget {
               label: "Acrobático",
               count: acroCount,
               color: const Color(0xFFE74C3C), // Vermelho
-              onTap: () => print("Acro selecionado"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SelecaoPilotosPage(
+                      categoria: "Acrobático",
+                      corCategoria: Color(0xFFE74C3C),
+                    ),
+                  ),
+                );
+              },
             ),
-            
+
             const SizedBox(height: 12),
 
             _buildCategoryButton(
-              label: "Jatos",
+              label: "Jato",
               count: jatosCount,
               color: const Color(0xFF27AE60), // Verde
-              onTap: () => print("Jatos selecionado"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SelecaoPilotosPage(
+                      categoria: "Jato",
+                      corCategoria: Color(0xFF27AE60),
+                    ),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: 12),
@@ -65,18 +89,27 @@ class ControleJanelaPage extends StatelessWidget {
               label: "Escala",
               count: escalaCount,
               color: const Color(0xFF2980B9), // Azul
-              onTap: () => print("Escala selecionada"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SelecaoPilotosPage(
+                      categoria: "Escala",
+                      corCategoria: Color(0xFF2980B9),
+                    ),
+                  ),
+                );
+              },
             ),
 
             const Spacer(), // Empurra os botões finais para o rodapé
-
             // Botões de Gerenciamento
             _buildManagementButton(
               label: "Visualizar Janela Atual",
               icon: Icons.remove_red_eye,
               onTap: () => print("Visualizar"),
             ),
-            
+
             const SizedBox(height: 10),
 
             _buildManagementButton(
@@ -84,7 +117,7 @@ class ControleJanelaPage extends StatelessWidget {
               icon: Icons.edit,
               onTap: () => print("Editar"),
             ),
-            
+
             const SizedBox(height: 30), // Margem inferior
           ],
         ),
@@ -94,10 +127,10 @@ class ControleJanelaPage extends StatelessWidget {
 
   // Widget para os botões de categoria (com contador)
   Widget _buildCategoryButton({
-    required String label, 
-    required int count, 
-    required Color color, 
-    required VoidCallback onTap
+    required String label,
+    required int count,
+    required Color color,
+    required VoidCallback onTap,
   }) {
     return SizedBox(
       width: double.infinity,
@@ -106,14 +139,20 @@ class ControleJanelaPage extends StatelessWidget {
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 25,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -123,9 +162,12 @@ class ControleJanelaPage extends StatelessWidget {
               ),
               child: Text(
                 '$count', // Exibe o char '0' conforme solicitado
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -133,7 +175,11 @@ class ControleJanelaPage extends StatelessWidget {
   }
 
   // Widget para os botões de rodapé (mais discretos)
-  Widget _buildManagementButton({required String label, required IconData icon, required VoidCallback onTap}) {
+  Widget _buildManagementButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
