@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../models/piloto.dart';
+import '../services/supabase_service.dart';
 
 class SelecaoPilotosPage extends StatefulWidget {
   final String categoria;
@@ -15,110 +17,105 @@ class SelecaoPilotosPage extends StatefulWidget {
 }
 
 class _SelecaoPilotosPageState extends State<SelecaoPilotosPage> {
-  // Simulação de banco de dados (Mock)
-  // Na vida real, isso viria de um GET /pilotos?status=aguardando&categoria=...
-  List<Map<String, dynamic>> pilotosDaFila = [
-    {'senha': 101, 'nome': 'João Silva', 'selecionado': true},
-    {'senha': 102, 'nome': 'Marcos Pereira', 'selecionado': true},
-    {'senha': 103, 'nome': 'Jorge Santos', 'selecionado': true},
-    {'senha': 104, 'nome': 'Benício Ramos', 'selecionado': true},
-    {'senha': 105, 'nome': 'Lenilson Porto', 'selecionado': true},
-    {'senha': 106, 'nome': 'Cristiano Ronaldo', 'selecionado': false},
-    {'senha': 107, 'nome': 'Ayrton Senna', 'selecionado': false},
-  ];
+  final SupabaseService _service = SupabaseService();
+  List<Map<String, dynamic>> _filaLocal = [];
+  bool _carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarFila();
+  }
+
+  Future<void> _carregarFila() async {
+    final lista = await _service.buscarFilaPorCategoria(widget.categoria);
+
+    setState(() {
+      // Criamos uma lista local que inclui a variável 'selecionado' para o Checkbox
+      _filaLocal = lista.asMap().entries.map((entry) {
+        int index = entry.key;
+        Piloto p = entry.value;
+        return {
+          'piloto': p,
+          'selecionado': index < 5, // Automação: seleciona os 5 primeiros
+        };
+      }).toList();
+      _carregando = false;
+    });
+  }
+
+  Future<void> _confirmarJanela() async {
+    // Pegamos apenas os IDs dos que estão marcados
+    final idsSelecionados = _filaLocal
+        .where((item) => item['selecionado'] == true)
+        .map((item) => (item['piloto'] as Piloto).id!)
+        .toList();
+
+    if (idsSelecionados.isEmpty) return;
+
+    await _service.enviarPilotosParaPista(idsSelecionados);
+
+    if (mounted) {
+      Navigator.pop(context); // Volta para o controle
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Janela aberta! Pilotos enviados para o telão.")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Filtramos apenas os que o sistema marcou como os 5 primeiros
-    int totalSelecionados = pilotosDaFila.where((p) => p['selecionado']).length;
+    int totalSelecionados = _filaLocal.where((item) => item['selecionado']).length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text("Fila: ${widget.categoria}"),
         backgroundColor: widget.corCategoria,
-        foregroundColor: Colors.white,
       ),
-      body: Column(
+      body: _carregando
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             color: widget.corCategoria.withOpacity(0.1),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.blueGrey),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    "O sistema selecionou automaticamente os 5 próximos pilotos da categoria ${widget.categoria}.",
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
+            child: Text(
+              "O sistema selecionou os 5 próximos. Ajuste se necessário:",
+              style: TextStyle(color: widget.corCategoria, fontWeight: FontWeight.bold),
             ),
           ),
-
           Expanded(
             child: ListView.builder(
-              itemCount: pilotosDaFila.length,
+              itemCount: _filaLocal.length,
               itemBuilder: (context, index) {
-                final piloto = pilotosDaFila[index];
+                final item = _filaLocal[index];
+                final Piloto p = item['piloto'];
                 return CheckboxListTile(
-                  title: Text("${piloto['senha']} - ${piloto['nome']}"),
-                  subtitle: Text(piloto['selecionado'] ? "Selecionado para esta janela" : "Na fila de espera"),
-                  value: piloto['selecionado'],
+                  title: Text("${p.senha} - ${p.nome}"),
+                  subtitle: Text("Status: ${p.status}"),
+                  value: item['selecionado'],
                   activeColor: widget.corCategoria,
-                  onChanged: (bool? valor) {
-                    setState(() {
-                      piloto['selecionado'] = valor!;
-                    });
+                  onChanged: (valor) {
+                    setState(() => item['selecionado'] = valor);
                   },
                 );
               },
             ),
           ),
-
-          // Rodapé com resumo e botão de confirmação
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))]
-            ),
-            child: Column(
-              children: [
-                Text(
-                  "Pilotos selecionados: $totalSelecionados / 5",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: totalSelecionados == 5 ? Colors.green : Colors.orange
-                  ),
+          // Botão de Confirmação
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 60,
+              child: ElevatedButton(
+                onPressed: totalSelecionados > 0 ? _confirmarJanela : null,
+                style: ElevatedButton.styleFrom(backgroundColor: widget.corCategoria),
+                child: Text(
+                  "ABRIR JANELA ($totalSelecionados PILOTOS)",
+                  style: const TextStyle(fontSize: 18, color: Colors.white),
                 ),
-                const SizedBox(height: 15),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: totalSelecionados == 5
-                        ? () {
-                      // Lógica para criar a janela e enviar para o banco
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Janela criada com sucesso!"))
-                      );
-                      Navigator.pop(context);
-                    }
-                        : null, // Desabilita se não tiver 5
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.corCategoria,
-                      disabledBackgroundColor: Colors.grey[300],
-                    ),
-                    child: const Text(
-                        "CONFIRMAR JANELA",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           )
         ],

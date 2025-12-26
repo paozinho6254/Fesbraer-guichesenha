@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/piloto.dart';
+import '../services/supabase_service.dart';
 import 'cadastro_base_page.dart';
 
 class RegistroPilotoPage extends StatefulWidget {
@@ -10,12 +12,16 @@ class RegistroPilotoPage extends StatefulWidget {
 }
 
 class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
+  final SupabaseService _service = SupabaseService();
+
   // Controladores para capturar o texto dos campos
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  
+
+  Piloto? _pilotoSelecionado;
   String _categoriaSelecionada = ''; // Armazena a categoria escolhida
+  List<Piloto> _pilotosInscritos = [];
 
   // Função para limpar o formulário após salvar
   void _limparCampos() {
@@ -107,14 +113,27 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
-                onPressed: () {
-                  // Aqui entrará a chamada da API POST /pilotos
-                  final snackBar = SnackBar(
-                    content: Text('Piloto ${_nomeController.text} cadastrado com sucesso!'),
-                    backgroundColor: Colors.green,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                  _limparCampos();
+                onPressed: () async {
+                  if (_pilotoSelecionado != null &&
+                      _categoriaSelecionada.isNotEmpty &&
+                      _senhaController.text.isNotEmpty) {
+                    await _service.gerarNovaSenhaVoo(
+                      nome: _pilotoSelecionado!.nome,
+                      // Pega o nome do piloto vindo do Autocomplete
+                      telefone: _telefoneController.text,
+                      categoria: _categoriaSelecionada,
+                      senha: int.parse(_senhaController.text),
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Voo de ${_pilotoSelecionado!
+                            .nome} em $_categoriaSelecionada registrado!")),
+                      );
+                      // Opcional: Limpar tudo para o próximo
+                      Navigator.pop(context);
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2C3E50),
@@ -124,6 +143,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                   "SALVAR E GERAR TICKET",
                   style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
                 ),
+
               ),
             ),
             const SizedBox(height: 20),

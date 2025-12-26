@@ -30,9 +30,16 @@ class SupabaseService {
         .select()
         .eq('categoria', categoria)
         .eq('status', 'aguardando')
-        .order('created_at', ascending: true);
+        .order('senha', ascending: true); // Garante que a senha menor vem primeiro
 
     return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
+  }
+
+  Future<void> enviarPilotosParaPista(List<String> ids) async {
+    await _supabase
+        .from('pilotos')
+        .update({'status': 'pista'})
+        .inFilter('id', ids); // O comando in_ seleciona todos os IDs da lista
   }
 
   // 4. Mudar status para "Pista" (Quando os 5 são selecionados)
@@ -44,12 +51,28 @@ class SupabaseService {
   }
 
   Future<List<Piloto>> buscarPilotosInscritos() async {
-    final response = await _supabase 
+    final response = await _supabase
         .from('pilotos')
         .select()
         .eq('status', 'inscrito'); // Apenas quem ainda não foi registrado na pista
 
     return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
+  }
+
+  Future<void> gerarNovaSenhaVoo({
+    required String nome,
+    required String telefone,
+    required String categoria,
+    required int senha,
+  }) async {
+    await _supabase.from('pilotos').insert({
+      'nome': nome,
+      'telefone': telefone,
+      'categoria': categoria,
+      'senha': senha,
+      'status': 'aguardando', // Ele entra na fila agora
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
 }
