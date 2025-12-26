@@ -42,4 +42,14 @@ class SupabaseService {
         .update({'status': 'pista'})
         .inFilter('id', idsPilotos);
   }
+
+  Future<List<Piloto>> buscarPilotosInscritos() async {
+    final response = await _supabase 
+        .from('pilotos')
+        .select()
+        .eq('status', 'inscrito'); // Apenas quem ainda não foi registrado na pista
+
+    return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
+  }
+
 }
