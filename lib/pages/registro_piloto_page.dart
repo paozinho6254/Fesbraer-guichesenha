@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'cadastro_base_page.dart';
+
 class RegistroPilotoPage extends StatefulWidget {
   const RegistroPilotoPage({super.key});
 
@@ -124,6 +126,37 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+
+            // Atalho para Cadastro Base
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  // Redireciona para a tela de Cadastro Base
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CadastroBasePage()),
+                  );
+                },
+                child: RichText(
+                  text: const TextSpan(
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    children: [
+                      TextSpan(text: "Piloto não está na lista? "),
+                      TextSpan(
+                        text: "Cadastre aqui",
+                        style: TextStyle(
+                          color: Color(0xFF2980B9),
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
