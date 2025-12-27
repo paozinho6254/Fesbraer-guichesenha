@@ -25,13 +25,13 @@ class SupabaseService {
   }
 
   // Buscar pilotos aguardando por categoria (Ordenados por senha)
-  Future<List<Piloto>> buscarFilaPorCategoria(String categoria) async {
+  Future<List<Piloto>> buscarPilotosPorCategoria(String categoria) async {
     final response = await _supabase
         .from('pilotos')
         .select()
-        .eq('categoria', categoria)
-        .eq('status', 'aguardando')
-        .order('senha', ascending: true); // Garante que a senha menor vem primeiro
+        .eq('categoria', categoria) // Filtra pela categoria (jato, acro, escala)
+        .eq('status', 'aguardando')  // Filtra apenas quem está na fila
+        .order('senha', ascending: true); // Mostra na ordem das senhas
 
     return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
   }
@@ -60,6 +60,13 @@ class SupabaseService {
       'status': 'aguardando', // Ele entra na fila
       'created_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  Future<void> abrirJanelaVoo(List<String> ids) async {
+    await _supabase
+        .from('pilotos')
+        .update({'status': 'pista'}) // Muda para 'pista' para aparecer no telão
+        .inFilter('id', ids); // Aplica a todos os IDs da lista selecionada
   }
 
 }
