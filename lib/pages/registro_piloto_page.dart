@@ -4,6 +4,10 @@ import '../models/piloto.dart';
 import '../services/supabase_service.dart';
 import 'cadastro_base_page.dart';
 
+import '../models/piloto.dart';
+import '../services/supabase_service.dart';
+import 'cadastro_base_page.dart';
+
 class RegistroPilotoPage extends StatefulWidget {
   const RegistroPilotoPage({super.key});
 
@@ -209,6 +213,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                 child: const Text("Piloto não está na lista? Cadastre aqui", style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
               ),
             ),
+            const SizedBox(height: 20), // Margem de segurança inferior
           ],
         ),
       ),
