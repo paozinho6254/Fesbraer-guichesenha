@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../services/supabase_service.dart'; // 1. Importe o pacote
 
 class CadastroBasePage extends StatefulWidget {
   const CadastroBasePage({super.key});
@@ -8,35 +12,61 @@ class CadastroBasePage extends StatefulWidget {
 }
 
 class _CadastroBasePageState extends State<CadastroBasePage> {
+  final SupabaseService _service = SupabaseService();
+
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
+  bool _carregando = false; // Para mostrar um indicador de progresso
 
-  // Função que simula o salvamento no banco de dados
-  void _salvarNoBanco() {
-    if (_nomeController.text.isEmpty || _telefoneController.text.isEmpty) {
+  var maskFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy,
+  );
+
+  // 2. Função de salvamento real no Supabase
+  Future<void> _salvarNoSupabase() async {
+    // 1. Validação simples: Nome não pode ser vazio e telefone deve estar completo
+    // O telefone com máscara (XX) XXXXX-XXXX tem 15 caracteres
+    if (_nomeController.text.trim().isEmpty || _telefoneController.text.length < 15) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Preencha todos os campos!")),
+        const SnackBar(
+          content: Text("⚠️ Preencha o nome e o telefone completo!"),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
-    // Estrutura de dados que será enviada para a API futuramente
-    final novoPiloto = {
-      "nome": _nomeController.text,
-      "telefone": _telefoneController.text,
-      "categoria": "pendente", // Definido como pendente conforme solicitado
-      "status": "inscrito",    // Status para indicar que ainda não pegou senha
-      "senha": null,           // Ainda sem senha
-    };
+    // 2. Inicia o estado de carregamento (o botão fica desativado e mostra o girinho)
+    setState(() => _carregando = true);
 
-    print("Salvando no banco: $novoPiloto");
+    try {
+      // 3. Envia para o seu Service
+      await _service.cadastrarPilotoBase(
+        _nomeController.text.trim(),
+        _telefoneController.text, // Salva o texto já com a máscara
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${_nomeController.text} cadastrado na base!")),
-    );
-
-    _nomeController.clear();
-    _telefoneController.clear();
+      // 4. Se deu certo, limpa tudo e avisa o usuário
+      if (mounted) {
+        _nomeController.clear();
+        _telefoneController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Piloto cadastrado!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      // 5. Se der erro (ex: internet caiu), avisa o erro
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("❌ Erro ao salvar: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      // 6. Volta o botão ao estado normal, independente de ter dado erro ou certo
+      if (mounted) setState(() => _carregando = false);
+    }
   }
 
   @override
@@ -52,11 +82,6 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
               "Cadastro Pré-Evento",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              "Insira os dados do piloto conforme a inscrição do Sympla. A categoria e senha serão definidas na recepção do evento.",
-              style: TextStyle(color: Colors.grey),
-            ),
             const SizedBox(height: 30),
 
             TextField(
@@ -71,6 +96,7 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
 
             TextField(
               controller: _telefoneController,
+              inputFormatters: [maskFormatter], // Aplica a máscara aqui
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 labelText: "Telefone / WhatsApp",
@@ -86,9 +112,12 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton.icon(
-                onPressed: _salvarNoBanco,
-                icon: const Icon(Icons.save),
-                label: const Text("SALVAR NA BASE", style: TextStyle(fontSize: 18)),
+                // 4. Se estiver carregando, desativa o botão
+                onPressed: _carregando ? null : _salvarNoSupabase,
+                icon: _carregando
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.cloud_upload),
+                label: Text(_carregando ? "SALVANDO..." : "SALVAR NO SUPABASE", style: const TextStyle(fontSize: 18)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueGrey,
                   foregroundColor: Colors.white,
