@@ -1,6 +1,7 @@
 import 'package:fesbraerguichesenha/pages/selecao_janela_page.dart';
 import 'package:flutter/material.dart';
 
+
 class ControleJanelaPage extends StatelessWidget {
   const ControleJanelaPage({super.key});
 
@@ -54,7 +55,12 @@ class ControleJanelaPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                    MaterialPageRoute(builder: (context) => const SelecaoJanelaPage(categoria: 'acrobatico', corTema: Color(0xFFE74C3C)))
+                  MaterialPageRoute(
+                    builder: (context) => const SelecaoJanelaPage(
+                      categoria: 'acrobatico',
+                      corTema: Color(0xFFE74C3C),
+                    ),
+                  ),
                 );
               },
             ),
@@ -69,8 +75,10 @@ class ControleJanelaPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        const SelecaoJanelaPage(categoria: 'jato', corTema: Color(0xFF27AE60),),
+                    builder: (context) => const SelecaoJanelaPage(
+                      categoria: 'jato',
+                      corTema: Color(0xFF27AE60),
+                    ),
                   ),
                 );
               },
@@ -85,7 +93,12 @@ class ControleJanelaPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                    MaterialPageRoute(builder: (context) => const SelecaoJanelaPage(categoria: 'escala', corTema: Color(0xFF2980B9),))
+                  MaterialPageRoute(
+                    builder: (context) => const SelecaoJanelaPage(
+                      categoria: 'escala',
+                      corTema: Color(0xFF2980B9),
+                    ),
+                  ),
                 );
               },
             ),
@@ -95,7 +108,14 @@ class ControleJanelaPage extends StatelessWidget {
             _buildManagementButton(
               label: "Visualizar Janela Atual",
               icon: Icons.remove_red_eye,
-              onTap: () => print("Visualizar"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MonitoramentoJanelasPage(),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: 10),

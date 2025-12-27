@@ -69,4 +69,20 @@ class SupabaseService {
         .inFilter('id', ids); // Aplica a todos os IDs da lista selecionada
   }
 
+  Stream<List<Piloto>> ouvirPilotosNaPista() {
+    return _supabase
+        .from('pilotos')
+        .stream(primaryKey: ['id'])
+        .eq('status', 'pista') // Filtra apenas quem está na pista agora
+        .map((data) => data.map((map) => Piloto.fromMap(map['id'], map)).toList());
+  }
+
+// Método para quando o piloto terminar o voo e sair do telão
+  Future<void> finalizarVoo(String id) async {
+    await _supabase
+        .from('pilotos')
+        .update({'status': 'finalizado'})
+        .eq('id', id);
+  }
+
 }
