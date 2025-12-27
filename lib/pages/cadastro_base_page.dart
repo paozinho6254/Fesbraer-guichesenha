@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 1. Importe o pacote
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../services/supabase_service.dart'; // 1. Importe o pacote
 
 class CadastroBasePage extends StatefulWidget {
   const CadastroBasePage({super.key});
@@ -9,55 +12,59 @@ class CadastroBasePage extends StatefulWidget {
 }
 
 class _CadastroBasePageState extends State<CadastroBasePage> {
+  final SupabaseService _service = SupabaseService();
+
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
   bool _carregando = false; // Para mostrar um indicador de progresso
 
+  var maskFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy,
+  );
+
   // 2. Função de salvamento real no Supabase
   Future<void> _salvarNoSupabase() async {
-    if (_nomeController.text.isEmpty || _telefoneController.text.isEmpty) {
+    // 1. Validação simples: Nome não pode ser vazio e telefone deve estar completo
+    // O telefone com máscara (XX) XXXXX-XXXX tem 15 caracteres
+    if (_nomeController.text.trim().isEmpty || _telefoneController.text.length < 15) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Preencha o nome e o telefone!")),
+        const SnackBar(
+          content: Text("⚠️ Preencha o nome e o telefone completo!"),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
+    // 2. Inicia o estado de carregamento (o botão fica desativado e mostra o girinho)
     setState(() => _carregando = true);
 
     try {
-      // 3. Comando para inserir na tabela 'pilotos'
-      await Supabase.instance.client.from('pilotos').insert({
-        'nome': _nomeController.text.trim(),
-        'telefone': _telefoneController.text.trim(),
-        'categoria': 'pendente',
-        'status': 'inscrito',
-      });
+      // 3. Envia para o seu Service
+      await _service.cadastrarPilotoBase(
+        _nomeController.text.trim(),
+        _telefoneController.text, // Salva o texto já com a máscara
+      );
 
+      // 4. Se deu certo, limpa tudo e avisa o usuário
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Piloto salvo com sucesso no banco!"),
-            backgroundColor: Colors.green,
-          ),
-        );
         _nomeController.clear();
         _telefoneController.clear();
-      }
-    } on PostgrestException catch (error) {
-      // Erro específico do banco de dados
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro no banco: ${error.message}"), backgroundColor: Colors.red),
+          const SnackBar(content: Text("✅ Piloto cadastrado!"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
-      // Erro genérico
+      // 5. Se der erro (ex: internet caiu), avisa o erro
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erro inesperado ao salvar."), backgroundColor: Colors.red),
+          SnackBar(content: Text("❌ Erro ao salvar: $e"), backgroundColor: Colors.red),
         );
       }
     } finally {
+      // 6. Volta o botão ao estado normal, independente de ter dado erro ou certo
       if (mounted) setState(() => _carregando = false);
     }
   }
@@ -89,6 +96,7 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
 
             TextField(
               controller: _telefoneController,
+              inputFormatters: [maskFormatter], // Aplica a máscara aqui
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 labelText: "Telefone / WhatsApp",

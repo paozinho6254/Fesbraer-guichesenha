@@ -15,7 +15,7 @@ class Piloto {
     this.senha,
   });
 
-  // Transforma o objeto em um mapa para salvar no Firebase
+  // Converte para o formato que o Supabase entende (JSON/Map)
   Map<String, dynamic> toMap() {
     return {
       'nome': nome,
@@ -23,11 +23,10 @@ class Piloto {
       'categoria': categoria,
       'status': status,
       'senha': senha,
-      'createdAt': DateTime.now(),
     };
   }
 
-  // Transforma o JSON do Firebase de volta em um objeto Piloto
+  // Converte o que vem do Supabase de volta para o objeto Piloto
   factory Piloto.fromMap(String id, Map<String, dynamic> map) {
     return Piloto(
       id: id,

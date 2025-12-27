@@ -4,7 +4,7 @@ import '../models/piloto.dart';
 class SupabaseService {
   final _supabase = Supabase.instance.client;
 
-  // 1. Cadastro Inicial (Sua tela de Cadastro Base - Sympla)
+  // Função para cadastrar o piloto vindo do Sympla (Cadastro Base)
   Future<void> cadastrarPilotoBase(String nome, String telefone) async {
     await _supabase.from('pilotos').insert({
       'nome': nome,
@@ -14,16 +14,17 @@ class SupabaseService {
     });
   }
 
-  // 2. Finalizar Registro (Sua tela de Registro - Dá a senha e categoria)
-  Future<void> ativarPiloto(String id, String categoria, int senha) async {
-    await _supabase.from('pilotos').update({
-      'categoria': categoria,
-      'senha': senha,
-      'status': 'aguardando',
-    }).eq('id', id);
+  // Função para buscar inscritos (usada no Autocomplete da próxima tela)
+  Future<List<Piloto>> buscarInscritos() async {
+    final response = await _supabase
+        .from('pilotos')
+        .select()
+        .eq('status', 'inscrito');
+
+    return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
   }
 
-  // 3. Buscar pilotos por categoria que estão na fila (Aguardando)
+  // Buscar pilotos aguardando por categoria (Ordenados por senha)
   Future<List<Piloto>> buscarFilaPorCategoria(String categoria) async {
     final response = await _supabase
         .from('pilotos')
@@ -35,28 +36,12 @@ class SupabaseService {
     return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
   }
 
+// Mudar o status dos 5 selecionados para 'pista'
   Future<void> enviarPilotosParaPista(List<String> ids) async {
     await _supabase
         .from('pilotos')
         .update({'status': 'pista'})
         .inFilter('id', ids); // O comando in_ seleciona todos os IDs da lista
-  }
-
-  // 4. Mudar status para "Pista" (Quando os 5 são selecionados)
-  Future<void> iniciarJanela(List<String> idsPilotos) async {
-    await _supabase
-        .from('pilotos')
-        .update({'status': 'pista'})
-        .inFilter('id', idsPilotos);
-  }
-
-  Future<List<Piloto>> buscarPilotosInscritos() async {
-    final response = await _supabase
-        .from('pilotos')
-        .select()
-        .eq('status', 'inscrito'); // Apenas quem ainda não foi registrado na pista
-
-    return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
   }
 
   Future<void> gerarNovaSenhaVoo({
@@ -65,12 +50,14 @@ class SupabaseService {
     required String categoria,
     required int senha,
   }) async {
+    // Usamos INSERT em vez de update para permitir que o piloto
+    // tenha vários registros (um para cada voo/categoria)
     await _supabase.from('pilotos').insert({
       'nome': nome,
       'telefone': telefone,
       'categoria': categoria,
       'senha': senha,
-      'status': 'aguardando', // Ele entra na fila agora
+      'status': 'aguardando', // Ele entra na fila
       'created_at': DateTime.now().toIso8601String(),
     });
   }
