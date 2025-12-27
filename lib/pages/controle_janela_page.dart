@@ -112,7 +112,10 @@ class ControleJanelaPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MonitoramentoJanelasPage(),
+                    builder: (context) => const SelecaoJanelaPage(
+                      categoria: 'escala',
+                      corTema: Color(0xFF2980B9),
+                    ),
                   ),
                 );
               },
