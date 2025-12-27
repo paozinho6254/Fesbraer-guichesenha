@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import 'cadastro_base_page.dart';
 
@@ -10,6 +11,13 @@ class RegistroPilotoPage extends StatefulWidget {
 }
 
 class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
+
+  var maskFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy,
+  );
+
   // Controladores para capturar o texto dos campos
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();

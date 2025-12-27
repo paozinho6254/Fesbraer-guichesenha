@@ -1,6 +1,4 @@
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 1. Importe o pacote
 
 class CadastroBasePage extends StatefulWidget {
   const CadastroBasePage({super.key});
@@ -12,55 +10,33 @@ class CadastroBasePage extends StatefulWidget {
 class _CadastroBasePageState extends State<CadastroBasePage> {
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
-  bool _carregando = false; // Para mostrar um indicador de progresso
 
-  // 2. Função de salvamento real no Supabase
-  Future<void> _salvarNoSupabase() async {
+  // Função que simula o salvamento no banco de dados
+  void _salvarNoBanco() {
     if (_nomeController.text.isEmpty || _telefoneController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Preencha o nome e o telefone!")),
+        const SnackBar(content: Text("Preencha todos os campos!")),
       );
       return;
     }
 
-    setState(() => _carregando = true);
+    // Estrutura de dados que será enviada para a API futuramente
+    final novoPiloto = {
+      "nome": _nomeController.text,
+      "telefone": _telefoneController.text,
+      "categoria": "pendente", // Definido como pendente conforme solicitado
+      "status": "inscrito",    // Status para indicar que ainda não pegou senha
+      "senha": null,           // Ainda sem senha
+    };
 
-    try {
-      // 3. Comando para inserir na tabela 'pilotos'
-      await Supabase.instance.client.from('pilotos').insert({
-        'nome': _nomeController.text.trim(),
-        'telefone': _telefoneController.text.trim(),
-        'categoria': 'pendente',
-        'status': 'inscrito',
-      });
+    print("Salvando no banco: $novoPiloto");
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Piloto salvo com sucesso no banco!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _nomeController.clear();
-        _telefoneController.clear();
-      }
-    } on PostgrestException catch (error) {
-      // Erro específico do banco de dados
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro no banco: ${error.message}"), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      // Erro genérico
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erro inesperado ao salvar."), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _carregando = false);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${_nomeController.text} cadastrado na base!")),
+    );
+
+    _nomeController.clear();
+    _telefoneController.clear();
   }
 
   @override
@@ -75,6 +51,11 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
             const Text(
               "Cadastro Pré-Evento",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Insira os dados do piloto conforme a inscrição do Sympla. A categoria e senha serão definidas na recepção do evento.",
+              style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
 
@@ -105,12 +86,9 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton.icon(
-                // 4. Se estiver carregando, desativa o botão
-                onPressed: _carregando ? null : _salvarNoSupabase,
-                icon: _carregando
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.cloud_upload),
-                label: Text(_carregando ? "SALVANDO..." : "SALVAR NO SUPABASE", style: const TextStyle(fontSize: 18)),
+                onPressed: _salvarNoBanco,
+                icon: const Icon(Icons.save),
+                label: const Text("SALVAR NA BASE", style: TextStyle(fontSize: 18)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueGrey,
                   foregroundColor: Colors.white,
