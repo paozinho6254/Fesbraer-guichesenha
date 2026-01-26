@@ -1,3 +1,4 @@
+import 'package:fesbraerguichesenha/pages/monitoramento_janela_page.dart';
 import 'package:fesbraerguichesenha/pages/selecao_janela_page.dart';
 import 'package:flutter/material.dart';
 
@@ -111,12 +112,7 @@ class ControleJanelaPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const SelecaoJanelaPage(
-                      categoria: 'escala',
-                      corTema: Color(0xFF2980B9),
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (context) => const MonitoramentoJanelasPage()),
                 );
               },
             ),
