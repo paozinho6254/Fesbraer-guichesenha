@@ -20,7 +20,6 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- SEÇÃO SUPERIOR: JANELA ATUAL ---
             _buildSecaoJanela(
               titulo: "JANELA ATUAL",
               corFundo: Colors.red,
@@ -30,21 +29,19 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
                 "Jorge S.",
                 "Benício R.",
                 "Lenilson P.",
-              ], // Exemplo
+              ],
               senhas: ["101", "102", "103", "104", "105"],
             ),
 
-            // --- SEÇÃO CENTRAL: TIMER ---
             _buildTimerSection(),
 
-            // --- SEÇÃO INFERIOR: PRÓXIMAS JANELAS (CARROSSEL) ---
             Expanded(
               child: Column(
                 children: [
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
-                      itemCount: 3, // Exemplo de 3 janelas na fila
+                      itemCount: 3,
                       itemBuilder: (context, index) {
                         return _buildSecaoJanela(
                           titulo: "Próximas janelas",
@@ -61,7 +58,6 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
                       },
                     ),
                   ),
-                  // Indicador de Página (●●●)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: Row(
@@ -81,7 +77,6 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
     );
   }
 
-  // Widget para os Cards de Janela
   Widget _buildSecaoJanela({
     required String titulo,
     required Color corFundo,
@@ -100,7 +95,7 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const SizedBox(width: 40), // Espaçador para centralizar o título
+              const SizedBox(width: 40), 
               Text(
                 titulo,
                 style: const TextStyle(
@@ -110,7 +105,7 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
                 ),
               ),
               TextButton(
-                onPressed: () {}, // Ação de Editar
+                onPressed: () {},
                 child: const Text(
                   "Editar janela",
                   style: TextStyle(color: Colors.white70, fontSize: 12),
