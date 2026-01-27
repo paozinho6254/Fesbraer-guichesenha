@@ -4,10 +4,6 @@ import '../models/piloto.dart';
 import '../services/supabase_service.dart';
 import 'cadastro_base_page.dart';
 
-import '../models/piloto.dart';
-import '../services/supabase_service.dart';
-import 'cadastro_base_page.dart';
-
 class RegistroPilotoPage extends StatefulWidget {
   const RegistroPilotoPage({super.key});
 
@@ -19,6 +15,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
   final SupabaseService _service = SupabaseService();
   bool _carregando = false;
   bool _buscandoPilotos = true;
+  bool _buscandoSenha = false; // Novo loading para a senha
 
   var maskFormatter = MaskTextInputFormatter(
     mask: '(##) #####-####',
@@ -39,7 +36,6 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
     _carregarPilotosBase();
   }
 
-  // Busca os pilotos que foram importados do Sympla
   Future<void> _carregarPilotosBase() async {
     try {
       final lista = await _service.buscarInscritos();
@@ -53,8 +49,29 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
     }
   }
 
+  // --- NOVA LÓGICA: Busca a senha ao clicar na categoria ---
+  Future<void> _aoSelecionarCategoria(String categoria) async {
+    setState(() {
+      _categoriaSelecionada = categoria;
+      _buscandoSenha = true;
+      _senhaController.clear(); // Limpa enquanto busca
+    });
+
+    try {
+      // Busca a próxima senha disponível no banco para essa categoria
+      int proximaSenha = await _service.obterProximaSenha(categoria);
+      
+      setState(() {
+        _senhaController.text = proximaSenha.toString();
+      });
+    } catch (e) {
+      debugPrint("Erro ao buscar senha: $e");
+    } finally {
+      setState(() => _buscandoSenha = false);
+    }
+  }
+
   Future<void> _registrarVoo() async {
-    // Validações
     if (_pilotoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Selecione um piloto da lista!")),
@@ -62,14 +79,14 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
       return;
     }
     if (_categoriaSelecionada.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Escolha uma categoria!")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Escolha uma categoria!")),
+      );
       return;
     }
     if (_senhaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Informe o número da senha!")),
+        const SnackBar(content: Text("Aguarde a geração da senha!")),
       );
       return;
     }
@@ -93,7 +110,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Volta para a Home após sucesso
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -114,7 +131,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Registro de Voo (Gerar Senha)",
+          "Registro de Voo",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -132,7 +149,6 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // AUTOCOMPLETE para buscar pelo nome
                   Autocomplete<Piloto>(
                     displayStringForOption: (Piloto p) => p.nome,
                     optionsBuilder: (TextEditingValue textEditingValue) {
@@ -140,8 +156,8 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                         return const Iterable<Piloto>.empty();
                       return _pilotosInscritos.where(
                         (p) => p.nome.toLowerCase().contains(
-                          textEditingValue.text.toLowerCase(),
-                        ),
+                              textEditingValue.text.toLowerCase(),
+                            ),
                       );
                     },
                     onSelected: (Piloto p) {
@@ -152,16 +168,16 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                     },
                     fieldViewBuilder:
                         (context, controller, focusNode, onFieldSubmitted) {
-                          return TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            decoration: const InputDecoration(
-                              labelText: "Comece a digitar o nome...",
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        },
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                          labelText: "Comece a digitar o nome...",
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 15),
@@ -179,11 +195,12 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                   const SizedBox(height: 25),
 
                   const Text(
-                    "Selecione a Categoria deste Voo",
+                    "Selecione a Categoria",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 15),
 
+                  // BOTÕES DE CATEGORIA
                   Row(
                     children: [
                       _buildCategoryOption(
@@ -207,56 +224,78 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                   ),
                   const SizedBox(height: 25),
 
-                  const Text(
-                    "Ticket Físico",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 15),
-
-                  SizedBox(
-                    width: 200,
-                    child: TextField(
-                      controller: _senhaController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: "Nº da Senha",
-                        floatingLabelAlignment: FloatingLabelAlignment.center,
-                        border: OutlineInputBorder(),
-                      ),
+                  // --- ÁREA CONDICIONAL DA SENHA ---
+                  // Só aparece se uma categoria for selecionada
+                  if (_categoriaSelecionada.isNotEmpty) ...[
+                    const Text(
+                      "Ticket / Senha Gerada",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // Botão Salvar com LOGICA DE LOADING
-                  SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: ElevatedButton(
-                      onPressed: _carregando ? null : _registrarVoo,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2C3E50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    const SizedBox(height: 15),
+                    
+                    if (_buscandoSenha)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      Center( // Centralizei para dar destaque ao número
+                        child: SizedBox(
+                          width: 200,
+                          child: TextField(
+                            controller: _senhaController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            readOnly: false, // Pode deixar false caso queira corrigir manualmente
+                            style: const TextStyle(
+                              fontSize: 40, // Aumentei a fonte
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: "...",
+                              helperText: "Sugerido automaticamente",
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
                         ),
                       ),
-                      child: _carregando
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "SALVAR E ENVIAR PARA FILA",
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                    const SizedBox(height: 40),
+
+                    // O botão só aparece quando tudo está pronto
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        onPressed: _carregando ? null : _registrarVoo,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2C3E50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _carregando
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text(
+                                "CONFIRMAR VOO",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    // Espaço vazio ou aviso para selecionar categoria
+                    Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: const Text(
+                        "Selecione uma categoria acima para gerar a senha.",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 20),
 
@@ -277,7 +316,7 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20), // Margem de segurança inferior
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -288,13 +327,18 @@ class _RegistroPilotoPageState extends State<RegistroPilotoPage> {
     bool isSelected = _categoriaSelecionada == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _categoriaSelecionada = value),
-        child: Container(
+        // Alterado para chamar a função que busca a senha
+        onTap: () => _aoSelecionarCategoria(value), 
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
           height: 60,
           decoration: BoxDecoration(
             color: isSelected ? color : Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color, width: 2),
+            boxShadow: isSelected
+                ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
+                : [],
           ),
           child: Center(
             child: Text(

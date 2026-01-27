@@ -187,70 +187,66 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
           final janelasFila = _agruparPorJanela(pilotosFila);
           final janelaAtual = _agruparPorJanela(pilotosPista);
 
-          return Column(
-            children: [
-              // --- JANELA ATUAL (PISTA) ---
-              if (janelaAtual.isNotEmpty)
-                _buildCardJanela(
-                  titulo:
-                      "AGORA: ${janelaAtual.first.first.categoria.toUpperCase()}",
-                  corDestaque: _getCorPorCategoria(
-                    janelaAtual.first.first.categoria,
-                  ), // Cor de destaque
-                  pilotos: janelaAtual.first,
-                  isFila: false,
-                  // Aqui chamamos a função que finaliza e puxa o próximo
-                  onFinalizar: () => _service.finalizarEPromoverProxima(
-                    janelaAtual.first.first.janelaId!,
-                  ),
-                )
-              else
-                const SizedBox(
-                  height: 150,
-                  child: Center(
-                    child: Text(
-                      "PISTA LIVRE",
-                      style: TextStyle(fontSize: 20, color: Colors.grey),
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                if (janelaAtual.isNotEmpty)
+                  _buildCardJanela(
+                    titulo:
+                        "AGORA: ${janelaAtual.first.first.categoria.toUpperCase()}",
+                    corDestaque: _getCorPorCategoria(
+                      janelaAtual.first.first.categoria,
+                    ), // Cor de destaque
+                    pilotos: janelaAtual.first,
+                    isFila: false,
+                    widgetAdicional: _buildTimerSection(),
+                    onFinalizar: () => _tratarBotaoFinalizar(
+                      janelaAtual.first.first.janelaId!,
+                    ),
+                  )
+                else
+                  const SizedBox(
+                    height: 150,
+                    child: Center(
+                      child: Text(
+                        "PISTA LIVRE",
+                        style: TextStyle(fontSize: 20, color: Colors.grey),
+                      ),
                     ),
                   ),
+
+                const Divider(),
+
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text(
+                    "Próximas Janelas",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
 
-              const Divider(),
-
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text(
-                  "Próximas Janelas",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              // --- CARROSSEL DA FILA ---
-              Expanded(
-                child: janelasFila.isEmpty
-                    ? const Center(child: Text("Sem janelas na fila"))
-                    : PageView.builder(
-                        controller: _pageController,
-                        itemCount: janelasFila.length,
-                        itemBuilder: (context, index) {
-                          final grupo = janelasFila[index];
-                          return _buildCardJanela(
-                            titulo: grupo.first.categoria.toUpperCase(),
-                            corDestaque: _getCorPorCategoria(
-                              grupo.first.categoria,
-                            ),
-                            pilotos: grupo,
-                            isFila: true,
-                            // Aqui chamamos apenas a exclusão
-                            onFinalizar: () =>
-                                _service.cancelarOuFinalizarJanela(
-                                  grupo.first.janelaId!,
-                                ),
-                          );
-                        },
+                // --- CARROSSEL DA FILA ---
+                ListView.builder(
+                  shrinkWrap:
+                      true, // Faz a lista ocupar apenas o espaço necessário
+                  physics:
+                      const NeverScrollableScrollPhysics(), // O scroll será controlado pelo pai
+                  itemCount: janelasFila.length,
+                  itemBuilder: (context, index) {
+                    final grupo = janelasFila[index];
+                    return _buildCardJanela(
+                      titulo: grupo.first.categoria.toUpperCase(),
+                      corDestaque: _getCorPorCategoria(grupo.first.categoria),
+                      pilotos: grupo,
+                      isFila: true,
+                      onFinalizar: () => _service.cancelarOuFinalizarJanela(
+                        grupo.first.janelaId!,
                       ),
-              ),
-            ],
+                    );
+                  },
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -261,7 +257,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     required String titulo,
     required Color corDestaque,
     required List<Piloto> pilotos,
-    String? vazioTexto,
+    Widget? widgetAdicional,
     VoidCallback? onFinalizar,
     bool isFila = false,
   }) {
@@ -272,55 +268,40 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
         borderRadius: BorderRadius.circular(25),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Expanded(
-                  child: Text(
-                    titulo,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-
-                const SizedBox(width: 10),
-
-                if (onFinalizar != null && pilotos.isNotEmpty)
-                  ElevatedButton(
-                    onPressed: onFinalizar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      minimumSize: const Size(0, 30),
-                    ),
-                    child: Text(
-                      pilotos.first.status == 'pista' ? "FINALIZAR" : "EXCLUIR",
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        titulo,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    "Editar",
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
+                    if (onFinalizar != null)
+                      ElevatedButton(
+                        onPressed: onFinalizar,
+                        child: Text(isFila ? "EXCLUIR" : "FINALIZAR"),
+                      ),
+                  ],
                 ),
+                if (widgetAdicional != null) ...[
+                  const SizedBox(height: 10),
+                  widgetAdicional,
+                ],
               ],
             ),
           ),
-
           Container(
             margin: const EdgeInsets.fromLTRB(15, 0, 15, 20),
             padding: const EdgeInsets.all(10),
@@ -328,15 +309,18 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: pilotos.isEmpty
-                ? SizedBox(
-                    height: 100,
-                    child: Center(child: Text(vazioTexto ?? "Vazio")),
-                  )
-                : Column(
-                    children: pilotos
-                        .map(
-                          (p) => ListTile(
+            child: Column(
+              children: [
+                pilotos.isEmpty
+                    ? const Center(child: Text("Vazio"))
+                    : ListView.builder(
+                        padding: EdgeInsets.zero,
+                        physics: const ClampingScrollPhysics(),
+                        shrinkWrap: true,
+                        itemCount: pilotos.length,
+                        itemBuilder: (context, i) {
+                          final p = pilotos[i];
+                          return ListTile(
                             leading: Text(
                               "${p.senha}",
                               style: const TextStyle(
@@ -348,13 +332,15 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
                               p.nome,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
                             visualDensity: VisualDensity.compact,
-                          ),
-                        )
-                        .toList(),
-                  ),
+                          );
+                        },
+                      ),
+              ],
+            ),
           ),
         ],
       ),
@@ -362,49 +348,70 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Widget _buildTimerSection() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _formatarTempo(_segundosRestantes),
-              style: const TextStyle(fontSize: 54, fontWeight: FontWeight.bold),
-            ),
-            IconButton(
-              onPressed: _alternarTimer,
-              icon: Icon(
-                _estaRodando
-                    ? Icons.pause_circle_filled
-                    : Icons.play_circle_fill,
-                size: 50,
-                color: Colors.blueAccent,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(
+          0.1,
+        ), // Um fundo leve para destacar o timer
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _formatarTempo(_segundosRestantes),
+                style: const TextStyle(
+                  fontSize: 48, // Tamanho grande para o visor
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-            ),
-          ],
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _btnTimer(
-              Icons.remove,
-              () => setState(
-                () => _segundosRestantes = (_segundosRestantes >= 60)
-                    ? _segundosRestantes - 60
-                    : 0,
+              const SizedBox(width: 15),
+              IconButton(
+                onPressed: _alternarTimer,
+                icon: Icon(
+                  _estaRodando
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_fill,
+                  size: 48,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text("TEMPO"),
-            ),
-            _btnTimer(
-              Icons.add,
-              () => setState(() => _segundosRestantes += 60),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+          // Botões de ajuste de tempo
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  color: Colors.white70,
+                ),
+                onPressed: () => setState(
+                  () => _segundosRestantes = _segundosRestantes >= 60
+                      ? _segundosRestantes - 60
+                      : 0,
+                ),
+              ),
+              const Text(
+                "AJUSTAR TEMPO",
+                style: TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.white70,
+                ),
+                onPressed: () => setState(() => _segundosRestantes += 60),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -456,14 +463,28 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     );
   }
 
-  Future<void> _tratarExclusao(int janelaId) async {
+  Future<void> _tratarBotaoFinalizar(int janelaId) async {
     try {
-      await _supabase.from('pilotos').delete().eq('janela_id', janelaId);
+      // 1. Para o timer visualmente antes de começar a transição
+      setState(() {
+        _estaRodando = false;
+        _timer?.cancel();
+      });
+
+      // 2. Chama o serviço que muda os status no Supabase
+      // Isso vai disparar o StreamBuilder automaticamente
+      await _service.finalizarEPromoverProxima(janelaId);
+
+      // 3. Reseta o timer para a próxima janela que vai subir
+      setState(() {
+        _segundosRestantes = 600; // 10 minutos ou seu tempo padrão
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Janela excluída com sucesso!")),
+        const SnackBar(content: Text("Janela concluída e próxima chamada!")),
       );
     } catch (e) {
-      print("Erro ao excluir janela: $e");
+      print("Erro ao finalizar janela: $e");
     }
   }
 }

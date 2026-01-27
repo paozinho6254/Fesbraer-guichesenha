@@ -124,6 +124,29 @@ class SupabaseService {
         .inFilter('id', idsPilotos);
   }
 
+  Future<int> obterProximaSenha(String categoria) async {
+    try {
+      // Busca o registro com a maior senha para esta categoria
+      final response = await _supabase
+          .from('pilotos')
+          .select('senha')
+          .eq('categoria', categoria)
+          .order('senha', ascending: false) // Ordena do maior para o menor
+          .limit(1)
+          .maybeSingle(); // Retorna null se não houver ninguém ainda
+
+      if (response == null) {
+        return 1; // Se for o primeiro da categoria, começa no 1
+      }
+
+      // Se já tiver, pega a última e soma 1
+      return (response['senha'] as int) + 1;
+    } catch (e) {
+      print("Erro ao calcular próxima senha: $e");
+      return 1; // Fallback seguro
+    }
+  }
+
   Stream<List<Piloto>> ouvirPilotosNaPista() {
     return _supabase
         .from('pilotos')
