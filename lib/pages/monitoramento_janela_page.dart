@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ffi' hide Size;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/piloto.dart'; // Certifique-se que o caminho está correto
+import '../models/piloto.dart'; 
 import '../services/supabase_service.dart';
 
 class MonitoramentoPage extends StatefulWidget {

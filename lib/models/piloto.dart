@@ -1,5 +1,5 @@
 class Piloto {
-  String? id;
+  String id;
   String nome;
   String telefone;
   String categoria;
@@ -9,7 +9,7 @@ class Piloto {
   String? updated_at;
 
   Piloto({
-    this.id,
+    required this.id,
     required this.nome,
     required this.telefone,
     this.categoria = 'pendente',

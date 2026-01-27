@@ -80,6 +80,32 @@ class SupabaseService {
     }
   }
 
+  Future<void> gerarJanelaComPilotos({
+    required List<Piloto> pilotos,
+    required String categoria,
+    required int senha,
+  }) async {
+    // Criamos um ID único para este grupo (janela)
+    final int janelaId = DateTime.now().millisecondsSinceEpoch;
+
+    // Preparamos as atualizações para cada piloto
+    // Usamos Future.wait para disparar todas as atualizações ao mesmo tempo
+    await Future.wait(
+      pilotos.map((piloto) {
+        return _supabase
+            .from('pilotos')
+            .update({
+              'status': 'aguardando', // Vai para a fila
+              'categoria': categoria,
+              'senha': senha,
+              'janela_id': janelaId,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', piloto.id); // Filtra pelo ID único do piloto
+      }),
+    );
+  }
+
   Future<void> gerarNovaSenhaVoo({
     required String nome,
     required String telefone,
