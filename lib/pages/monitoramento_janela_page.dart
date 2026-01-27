@@ -1,145 +1,354 @@
+import 'dart:async';
+import 'dart:ffi';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/piloto.dart'; // Certifique-se que o caminho está correto
 
-class MonitoramentoJanelasPage extends StatefulWidget {
-  const MonitoramentoJanelasPage({super.key});
+class MonitoramentoJanelaPage extends StatefulWidget {
+  const MonitoramentoJanelaPage({super.key});
 
   @override
-  State<MonitoramentoJanelasPage> createState() =>
-      _MonitoramentoJanelasPageState();
+  State<MonitoramentoJanelaPage> createState() =>
+      _MonitoramentoJanelaPageState();
 }
 
-class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
-  int _minutosTimer = 10;
-  bool _isTimerRunning = false;
+class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
+  final _supabase = Supabase.instance.client;
+
+  // Variáveis do Timer
+  Timer? _timer;
+  int _segundosRestantes = 600; // 10 minutos padrão
+  bool _estaRodando = false;
+
+  // Variáveis do Carrossel
   final PageController _pageController = PageController();
+  int _paginaAtual = 0;
+
+  Color _getCorPorCategoria(String? categoria) {
+    if (categoria == null) return Colors.grey;
+    final cat = categoria.toLowerCase();
+    if (cat.contains("acro")) return const Color(0xFFE74C3C);
+    if (cat.contains("escala")) return const Color(0xFF3498DB);
+    if (cat.contains("jato")) return const Color(0xFF2ECC71);
+    return Colors.blueGrey;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // --- LÓGICA DO TIMER ---
+  void _alternarTimer() {
+    if (_estaRodando) {
+      _timer?.cancel();
+    } else {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() {
+          if (_segundosRestantes > 0) {
+            _segundosRestantes--;
+          } else {
+            _timer?.cancel();
+            _estaRodando = false;
+          }
+        });
+      });
+    }
+    setState(() => _estaRodando = !_estaRodando);
+  }
+
+  void _reiniciarTimer() {
+    setState(() {
+      _timer?.cancel();
+      _estaRodando = false;
+      _segundosRestantes = 600; // Volta para 10 minutos
+    });
+  }
+
+  String _formatarTempo(int segundos) {
+    Duration duration = Duration(seconds: segundos);
+    String doisDigitos(int n) => n.toString().padLeft(2, "0");
+    String horas = doisDigitos(duration.inHours);
+    String minutos = doisDigitos(duration.inMinutes.remainder(60));
+    String segs = doisDigitos(duration.inSeconds.remainder(60));
+    return "$horas:$minutos:$segs";
+  }
+
+  // --- LÓGICA DO BANCO ---
+  Future<void> _limparSistema() async {
+    // Deleta todos os pilotos (Filtro 'neq' com ID impossível limpa tudo)
+    await _supabase
+        .from('pilotos')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Sistema reiniciado com sucesso!")),
+    );
+  }
+
+  List<List<Piloto>> _agruparPorCategoria(List<Piloto> lista) {
+    if (lista.isEmpty) return [];
+
+    lista.sort((a, b) => (a.senha ?? 0).compareTo(b.senha ?? 0));
+
+    Map<String, List<Piloto>> grupos = {};
+
+    for (var piloto in lista) {
+      // Usamos o janela_id como chave. Se for nulo (piloto sem janela), ignoramos.
+      var key = piloto.janela_Id;
+      if (key != null) {
+        if (!grupos.containsKey(key)) {
+          grupos[key] = [];
+        }
+        grupos[key]!.add(piloto);
+      }
+    }
+    return grupos.values.toList();
+  }
+
+  Future<void> _finalizarJanela(List<Piloto> pilotosAtuais) async {
+    if (pilotosAtuais.isEmpty) return;
+
+    final ids = pilotosAtuais.map((p) => p.id).toList();
+
+    try {
+      await _supabase
+          .from('pilotos')
+          .update({'status': 'concluido'})
+          .filter('id', 'in', ids);
+
+      _reiniciarTimer();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Janela finalizada e tempo resetado!")),
+      );
+    } catch (e) {
+      print("Erro ao finalizar: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildSecaoJanela(
-              titulo: "JANELA ATUAL",
-              corFundo: Colors.red,
-              pilotos: [
-                "João S.",
-                "Marcos P.",
-                "Jorge S.",
-                "Benício R.",
-                "Lenilson P.",
-              ],
-              senhas: ["101", "102", "103", "104", "105"],
-            ),
-
-            _buildTimerSection(),
-
-            Expanded(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: 3,
-                      itemBuilder: (context, index) {
-                        return _buildSecaoJanela(
-                          titulo: "Próximas janelas",
-                          corFundo: Colors.green,
-                          pilotos: [
-                            "Ítalo M.",
-                            "Jorge P.",
-                            "Paulo B.",
-                            "João S.",
-                            "Jerson P.",
-                          ],
-                          senhas: ["94", "95", "96", "97", "98"],
-                        );
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        3,
-                        (index) => _buildDot(index == 0),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: const Text(
+          "CONTROLE DE VOO",
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSecaoJanela({
-    required String titulo,
-    required Color corFundo,
-    required List<String> pilotos,
-    required List<String> senhas,
-  }) {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: corFundo,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(width: 40), 
-              Text(
-                titulo,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: const Text(
-                  "Editar janela",
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-          ...List.generate(
-            pilotos.length,
-            (i) => _buildLinhaPiloto(senhas[i], pilotos[i]),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            onPressed: () => _mostrarConfirmacaoLimpeza(),
           ),
         ],
       ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _supabase
+            .from('pilotos')
+            .stream(primaryKey: ['id'])
+            .order('senha', ascending: true), // O mais recente primeiro!
+
+        builder: (context, snapshot) {
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
+
+          final todos = snapshot.data!
+              .map((m) => Piloto.fromMap(m['id'], m))
+              .toList();
+
+          // 1. JANELA ATUAL: Pega apenas quem tem status 'pista'
+          // Como ordenamos por updated_at DESC, os pilotos que acabaram de entrar na pista estarão no topo
+          final pilotosNaPista = todos
+              .where((p) => p.status == 'pista')
+              .toList();
+          final janelasNaPista = _agruparPorCategoria(pilotosNaPista);
+
+          // A Janela Atual será sempre o primeiro grupo da lista de pista
+          final janelaAtual = janelasNaPista.isNotEmpty
+              ? janelasNaPista[0]
+              : <Piloto>[];
+
+          // 2. PRÓXIMAS JANELAS:
+          // Inclui: outras categorias que por acaso estejam na pista + todos que estão 'aguardando'
+          final janelasFila = _agruparPorCategoria(
+            todos.where((p) => p.status == 'aguardando').toList(),
+          );
+
+          final proximasJanelas = [
+            if (janelasNaPista.length > 1) ...janelasNaPista.sublist(1),
+            ...janelasFila,
+          ];
+
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildCardJanela(
+                  titulo: "JANELA ATUAL",
+                  corDestaque: _getCorPorCategoria(
+                    janelaAtual.isNotEmpty ? janelaAtual[0].categoria : null,
+                  ),
+                  pilotos: janelaAtual,
+                  vazioTexto: "AGUARDANDO CHAMADA",
+                  onFinalizar: () =>
+                      _finalizarJanela(janelaAtual), // Passamos a função aqui
+                ),
+
+                _buildTimerSection(),
+
+                const SizedBox(height: 20),
+                const Text(
+                  "Próximas Janelas",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+
+                // --- CARROSSEL ---
+                SizedBox(
+                  height: 380,
+                  child: proximasJanelas.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "FILA VAZIA",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (page) =>
+                              setState(() => _paginaAtual = page),
+                          itemCount: proximasJanelas.length,
+                          itemBuilder: (context, index) {
+                            final grupo = proximasJanelas[index];
+                            return _buildCardJanela(
+                              titulo:
+                                  "PRÓXIMA: ${grupo[0].categoria.toUpperCase()}",
+                              corDestaque: _getCorPorCategoria(
+                                grupo[0].categoria,
+                              ),
+                              pilotos: grupo,
+                            );
+                          },
+                        ),
+                ),
+
+                // Indicador de bolinhas
+                if (proximasJanelas.length > 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      proximasJanelas.length,
+                      (index) => _buildDot(index == _paginaAtual),
+                    ),
+                  ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildLinhaPiloto(String senha, String nome) {
+  Widget _buildCardJanela({
+    required String titulo,
+    required Color corDestaque,
+    required List<Piloto> pilotos,
+    String? vazioTexto,
+    VoidCallback? onFinalizar,
+  }) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: corDestaque,
+        borderRadius: BorderRadius.circular(25),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Text(
-            senha,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                if (onFinalizar != null && pilotos.isNotEmpty)
+                  ElevatedButton(
+                    onPressed: onFinalizar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text(
+                      "FINALIZAR",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      "Editar",
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    "Editar",
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 15),
-          Text(
-            nome,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Container(
+            margin: const EdgeInsets.fromLTRB(15, 0, 15, 20),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: pilotos.isEmpty
+                ? SizedBox(
+                    height: 100,
+                    child: Center(child: Text(vazioTexto ?? "Vazio")),
+                  )
+                : Column(
+                    children: pilotos
+                        .map(
+                          (p) => ListTile(
+                            leading: Text(
+                              "${p.senha}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                              ),
+                            ),
+                            title: Text(
+                              p.nome,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        )
+                        .toList(),
+                  ),
           ),
         ],
       ),
@@ -153,23 +362,39 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "$_minutosTimer:00:00",
-              style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+              _formatarTempo(_segundosRestantes),
+              style: const TextStyle(fontSize: 54, fontWeight: FontWeight.bold),
             ),
-            const Icon(Icons.play_arrow, size: 40),
+            IconButton(
+              onPressed: _alternarTimer,
+              icon: Icon(
+                _estaRodando
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_fill,
+                size: 50,
+                color: Colors.blueAccent,
+              ),
+            ),
           ],
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              onPressed: () => setState(() => _minutosTimer--),
-              icon: const Icon(Icons.remove_circle_outline),
+            _btnTimer(
+              Icons.remove,
+              () => setState(
+                () => _segundosRestantes = (_segundosRestantes >= 60)
+                    ? _segundosRestantes - 60
+                    : 0,
+              ),
             ),
-            const Text("TEMPO", style: TextStyle(fontWeight: FontWeight.bold)),
-            IconButton(
-              onPressed: () => setState(() => _minutosTimer++),
-              icon: const Icon(Icons.add_circle_outline),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text("TEMPO"),
+            ),
+            _btnTimer(
+              Icons.add,
+              () => setState(() => _segundosRestantes += 60),
             ),
           ],
         ),
@@ -177,15 +402,61 @@ class _MonitoramentoJanelasPageState extends State<MonitoramentoJanelasPage> {
     );
   }
 
-  Widget _buildDot(bool isActive) {
+  Widget _btnTimer(IconData icon, VoidCallback action) {
+    return IconButton(
+      onPressed: action,
+      icon: Icon(icon, size: 30),
+      color: Colors.black,
+    );
+  }
+
+  Widget _buildDot(bool active) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.all(4),
       width: 10,
       height: 10,
       decoration: BoxDecoration(
-        color: isActive ? Colors.black : Colors.grey[300],
+        color: active ? Colors.black : Colors.grey,
         shape: BoxShape.circle,
       ),
     );
   }
+
+  void _mostrarConfirmacaoLimpeza() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Limpar Sistema?"),
+        content: const Text(
+          "Isso apagará TODOS os pilotos e janelas. Esta ação não pode ser desfeita.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () {
+              _limparSistema();
+              Navigator.pop(context);
+            },
+            child: const Text(
+              "LIMPAR TUDO",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Função auxiliar para cores (Certifique-se que os nomes batem com o cadastro)
+Color _getCorPorCategoria(String? categoria) {
+  if (categoria == null) return Colors.grey;
+  final cat = categoria.toLowerCase();
+  if (cat.contains("acro")) return const Color(0xFFE74C3C); // Vermelho
+  if (cat.contains("escala")) return const Color(0xFF2ECC71); // Verde
+  if (cat.contains("jato")) return const Color(0xFF3498DB); // Azul
+  return Colors.blueGrey;
 }

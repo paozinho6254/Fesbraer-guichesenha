@@ -2,7 +2,6 @@ import 'package:fesbraerguichesenha/pages/monitoramento_janela_page.dart';
 import 'package:fesbraerguichesenha/pages/selecao_janela_page.dart';
 import 'package:flutter/material.dart';
 
-
 class ControleJanelaPage extends StatelessWidget {
   const ControleJanelaPage({super.key});
 
@@ -112,7 +111,9 @@ class ControleJanelaPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const MonitoramentoJanelasPage()),
+                  MaterialPageRoute(
+                    builder: (context) => const MonitoramentoJanelaPage(),
+                  ),
                 );
               },
             ),

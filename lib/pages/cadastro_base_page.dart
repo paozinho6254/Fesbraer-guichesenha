@@ -20,7 +20,7 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
 
   var maskFormatter = MaskTextInputFormatter(
     mask: '(##) #####-####',
-    filter: { "#": RegExp(r'[0-9]') },
+    filter: {"#": RegExp(r'[0-9]')},
     type: MaskAutoCompletionType.lazy,
   );
 
@@ -28,7 +28,8 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
   Future<void> _salvarNoSupabase() async {
     // 1. Validação simples: Nome não pode ser vazio e telefone deve estar completo
     // O telefone com máscara (XX) XXXXX-XXXX tem 15 caracteres
-    if (_nomeController.text.trim().isEmpty || _telefoneController.text.length < 15) {
+    if (_nomeController.text.trim().isEmpty ||
+        _telefoneController.text.length < 15) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("⚠️ Preencha o nome e o telefone completo!"),
@@ -53,14 +54,20 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
         _nomeController.clear();
         _telefoneController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Piloto cadastrado!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("✅ Piloto cadastrado!"),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       // 5. Se der erro (ex: internet caiu), avisa o erro
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Erro ao salvar: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text("❌ Erro ao salvar: $e"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -112,16 +119,28 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton.icon(
-                // 4. Se estiver carregando, desativa o botão
                 onPressed: _carregando ? null : _salvarNoSupabase,
+                // 4. Se estiver carregando, desativa o botão
                 icon: _carregando
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Icon(Icons.cloud_upload),
-                label: Text(_carregando ? "SALVANDO..." : "SALVAR NO SUPABASE", style: const TextStyle(fontSize: 18)),
+                label: Text(
+                  _carregando ? "SALVANDO..." : "SALVAR NO SUPABASE",
+                  style: const TextStyle(fontSize: 18),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueGrey,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
