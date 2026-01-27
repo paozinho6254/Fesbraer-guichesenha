@@ -5,6 +5,8 @@ class Piloto {
   String categoria;
   String status;
   int? senha;
+  int? janelaId;
+  String? updated_at;
 
   Piloto({
     this.id,
@@ -13,6 +15,8 @@ class Piloto {
     this.categoria = 'pendente',
     this.status = 'inscrito',
     this.senha,
+    this.janelaId,
+    this.updated_at,
   });
 
   // Converte para o formato que o Supabase entende (JSON/Map)
@@ -23,6 +27,8 @@ class Piloto {
       'categoria': categoria,
       'status': status,
       'senha': senha,
+      if (janelaId != null) 'janela_id': janelaId,
+      if (updated_at != null) 'updated_at': updated_at,
     };
   }
 
@@ -35,6 +41,8 @@ class Piloto {
       categoria: map['categoria'] ?? 'pendente',
       status: map['status'] ?? 'inscrito',
       senha: map['senha'],
+      janelaId: map['janela_id'],
+      updated_at: map['updated_at'],
     );
   }
 }

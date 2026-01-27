@@ -24,19 +24,26 @@ class SupabaseService {
     return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
   }
 
-  // Buscar pilotos aguardando por categoria (Ordenados por senha)
   Future<List<Piloto>> buscarPilotosPorCategoria(String categoria) async {
     final response = await _supabase
         .from('pilotos')
         .select()
-        .eq('categoria', categoria) // Filtra pela categoria (jato, acro, escala)
-        .eq('status', 'aguardando')  // Filtra apenas quem está na fila
-        .order('senha', ascending: true); // Mostra na ordem das senhas
+        .eq('categoria', categoria);
 
-    return (response as List).map((p) => Piloto.fromMap(p['id'], p)).toList();
+    final todosOsPilotos = (response as List)
+        .map((m) => Piloto.fromMap(m['id'], m))
+        .toList();
+
+    return todosOsPilotos.where((p) {
+      bool temSenha = p.senha != null;
+      bool semJanela = p.janelaId == null;
+      bool naoConcluiu = p.status != 'concluido';
+
+      return temSenha && semJanela && naoConcluiu;
+    }).toList();
   }
 
-// Mudar o status dos 5 selecionados para 'pista'
+  // Mudar o status dos 5 selecionados para 'pista'
   Future<void> enviarPilotosParaPista(List<String> ids) async {
     await _supabase
         .from('pilotos')
@@ -62,11 +69,30 @@ class SupabaseService {
     });
   }
 
-  Future<void> abrirJanelaVoo(List<String> ids) async {
+  Future<void> abrirJanelaVoo(List<String> idsPilotos) async {
+    final int novoJanelaId = DateTime.now().millisecondsSinceEpoch;
+
+    // 1. Verifica se existe alguém voando agora (status 'pista')
+    final respostaPista = await _supabase
+        .from('pilotos')
+        .select('id')
+        .eq('status', 'pista')
+        .limit(1);
+
+    // Se não houver ninguém, a pista está livre
+    bool pistaLivre = (respostaPista as List).isEmpty;
+    String statusDestino = pistaLivre ? 'pista' : 'aguardando';
+
+    // 2. Atualiza os pilotos selecionados
     await _supabase
         .from('pilotos')
-        .update({'status': 'pista'}) // Muda para 'pista' para aparecer no telão
-        .inFilter('id', ids); // Aplica a todos os IDs da lista selecionada
+        .update({
+          'status': statusDestino,
+          'janela_id': novoJanelaId,
+          'updated_at': DateTime.now()
+              .toIso8601String(), // Garanta que o nome aqui é igual ao do banco
+        })
+        .inFilter('id', idsPilotos);
   }
 
   Stream<List<Piloto>> ouvirPilotosNaPista() {
@@ -74,15 +100,16 @@ class SupabaseService {
         .from('pilotos')
         .stream(primaryKey: ['id'])
         .eq('status', 'pista') // Filtra apenas quem está na pista agora
-        .map((data) => data.map((map) => Piloto.fromMap(map['id'], map)).toList());
+        .map(
+          (data) => data.map((map) => Piloto.fromMap(map['id'], map)).toList(),
+        );
   }
 
-// Método para quando o piloto terminar o voo e sair do telão
+  // Método para quando o piloto terminar o voo e sair do telão
   Future<void> finalizarVoo(String id) async {
     await _supabase
         .from('pilotos')
         .update({'status': 'finalizado'})
         .eq('id', id);
   }
-
 }

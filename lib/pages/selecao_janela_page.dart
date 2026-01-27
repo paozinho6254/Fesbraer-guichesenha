@@ -1,8 +1,7 @@
-// lib/pages/selecao_janela_page.dart
-
 import 'package:flutter/material.dart';
 import '../models/piloto.dart';
 import '../services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SelecaoJanelaPage extends StatefulWidget {
   final String categoria;
@@ -20,6 +19,26 @@ class _SelecaoJanelaPageState extends State<SelecaoJanelaPage> {
   final Set<String> _idsSelecionados = {}; // Armazena os IDs marcados
   bool _carregando = true;
   bool _enviando = false;
+
+    Future<void> lancarJanelaParaMonitor(String categoriaAlvo) async {
+    final int novoIdLote = DateTime.now().millisecondsSinceEpoch;
+
+    try {
+      await Supabase.instance.client
+          .from('pilotos')
+          .update({
+            'status': 'aguardando',
+            'janela_id': novoIdLote,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .match({'categoria': categoriaAlvo, 'status': 'inscrito'})
+          .not('senha', 'is', null);
+
+      print("Sucesso: Somente pilotos com senha receberam o ID $novoIdLote");
+    } catch (e) {
+      print("Erro ao lançar: $e");
+    }
+  }
 
   @override
   void initState() {

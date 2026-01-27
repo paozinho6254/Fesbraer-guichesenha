@@ -42,7 +42,10 @@ class ControleJanelaPage extends StatelessWidget {
 
             const Text(
               "Selecione a categoria para escolher os pilotos",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 16,
+                color: Color.fromARGB(255, 85, 85, 85),
+              ),
             ),
 
             const SizedBox(height: 50),
@@ -125,7 +128,6 @@ class ControleJanelaPage extends StatelessWidget {
               icon: Icons.edit,
               onTap: () => print("Editar"),
             ),
-
             const SizedBox(height: 30), // Margem inferior
           ],
         ),

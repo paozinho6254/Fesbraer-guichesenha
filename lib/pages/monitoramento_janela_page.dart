@@ -88,41 +88,35 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
     );
   }
 
-  List<List<Piloto>> _agruparPorCategoria(List<Piloto> lista) {
+  List<List<Piloto>> _agruparPorJanela(List<Piloto> lista) {
     if (lista.isEmpty) return [];
 
     lista.sort((a, b) => (a.senha ?? 0).compareTo(b.senha ?? 0));
 
-    Map<String, List<Piloto>> grupos = {};
+    Map<int, List<Piloto>> grupos = {};
 
     for (var piloto in lista) {
-      // Usamos o janela_id como chave. Se for nulo (piloto sem janela), ignoramos.
-      var key = piloto.janela_Id;
-      if (key != null) {
-        if (!grupos.containsKey(key)) {
-          grupos[key] = [];
+      if (piloto.janelaId != null) {
+        int id = piloto.janelaId!;
+
+        if (!grupos.containsKey(id)) {
+          grupos[id] = [];
         }
-        grupos[key]!.add(piloto);
+        grupos[id]!.add(piloto);
       }
     }
     return grupos.values.toList();
   }
 
-  Future<void> _finalizarJanela(List<Piloto> pilotosAtuais) async {
-    if (pilotosAtuais.isEmpty) return;
-
-    final ids = pilotosAtuais.map((p) => p.id).toList();
-
+  Future<void> finalizarJanelaAtual(int idDaJanela) async {
     try {
       await _supabase
           .from('pilotos')
-          .update({'status': 'concluido'})
-          .filter('id', 'in', ids);
-
-      _reiniciarTimer();
+          .update({'status': 'concluido'}) // Marca como finalizado
+          .eq('janela_id', idDaJanela); // Filtra pelo ID do lote todo
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Janela finalizada e tempo resetado!")),
+        const SnackBar(content: Text("Janela finalizada com sucesso!")),
       );
     } catch (e) {
       print("Erro ao finalizar: $e");
@@ -167,7 +161,7 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
           final pilotosNaPista = todos
               .where((p) => p.status == 'pista')
               .toList();
-          final janelasNaPista = _agruparPorCategoria(pilotosNaPista);
+          final janelasNaPista = _agruparPorJanela(pilotosNaPista);
 
           // A Janela Atual será sempre o primeiro grupo da lista de pista
           final janelaAtual = janelasNaPista.isNotEmpty
@@ -176,7 +170,7 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
 
           // 2. PRÓXIMAS JANELAS:
           // Inclui: outras categorias que por acaso estejam na pista + todos que estão 'aguardando'
-          final janelasFila = _agruparPorCategoria(
+          final janelasFila = _agruparPorJanela(
             todos.where((p) => p.status == 'aguardando').toList(),
           );
 
@@ -195,8 +189,9 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
                   ),
                   pilotos: janelaAtual,
                   vazioTexto: "AGUARDANDO CHAMADA",
-                  onFinalizar: () =>
-                      _finalizarJanela(janelaAtual), // Passamos a função aqui
+                  onFinalizar: janelaAtual.isNotEmpty
+                      ? () => finalizarJanelaAtual(janelaAtual[0].janelaId ?? 0)
+                      : null,
                 ),
 
                 _buildTimerSection(),
@@ -449,14 +444,4 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
       ),
     );
   }
-}
-
-// Função auxiliar para cores (Certifique-se que os nomes batem com o cadastro)
-Color _getCorPorCategoria(String? categoria) {
-  if (categoria == null) return Colors.grey;
-  final cat = categoria.toLowerCase();
-  if (cat.contains("acro")) return const Color(0xFFE74C3C); // Vermelho
-  if (cat.contains("escala")) return const Color(0xFF2ECC71); // Verde
-  if (cat.contains("jato")) return const Color(0xFF3498DB); // Azul
-  return Colors.blueGrey;
 }
