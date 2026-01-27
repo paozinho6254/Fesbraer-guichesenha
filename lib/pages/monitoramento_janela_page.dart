@@ -1,28 +1,34 @@
 import 'dart:async';
-import 'dart:ffi';
+import 'dart:ffi' hide Size;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/piloto.dart'; // Certifique-se que o caminho está correto
+import '../services/supabase_service.dart';
 
-class MonitoramentoJanelaPage extends StatefulWidget {
-  const MonitoramentoJanelaPage({super.key});
-
+class MonitoramentoPage extends StatefulWidget {
+  const MonitoramentoPage({super.key});
   @override
-  State<MonitoramentoJanelaPage> createState() =>
-      _MonitoramentoJanelaPageState();
+  State<MonitoramentoPage> createState() => _MonitoramentoPageState();
 }
 
-class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
+class _MonitoramentoPageState extends State<MonitoramentoPage> {
+  final SupabaseService _service = SupabaseService();
+  final PageController _pageController = PageController(viewportFraction: 0.9);
+
+  // Fluxo de dados em tempo real
+  final _pilotosStream = Supabase.instance.client
+      .from('pilotos')
+      .stream(primaryKey: ['id'])
+      .order('updated_at', ascending: true); // Garante a ordem da fila
+
   final _supabase = Supabase.instance.client;
 
   // Variáveis do Timer
   Timer? _timer;
   int _segundosRestantes = 600; // 10 minutos padrão
   bool _estaRodando = false;
-
-  // Variáveis do Carrossel
-  final PageController _pageController = PageController();
   int _paginaAtual = 0;
+  List<List<Piloto>> proximasJanelas = [];
 
   Color _getCorPorCategoria(String? categoria) {
     if (categoria == null) return Colors.grey;
@@ -67,6 +73,38 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
     });
   }
 
+  Future<void> _excluirJanela(int janelaId) async {
+    try {
+      await _supabase.from('pilotos').delete().eq('janela_id', janelaId);
+
+      setState(() {
+        proximasJanelas.removeWhere(
+          (grupo) => grupo.first.janelaId == janelaId,
+        );
+
+        if (_paginaAtual >= proximasJanelas.length && _paginaAtual > 0) {
+          _paginaAtual = proximasJanelas.length - 1;
+          _pageController.animateToPage(
+            _paginaAtual,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Janela removida da fila.")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erro ao excluir: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   String _formatarTempo(int segundos) {
     Duration duration = Duration(seconds: segundos);
     String doisDigitos(int n) => n.toString().padLeft(2, "0");
@@ -88,21 +126,15 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
     );
   }
 
-  List<List<Piloto>> _agruparPorJanela(List<Piloto> lista) {
-    if (lista.isEmpty) return [];
+  List<List<Piloto>> _agruparPorJanela(List<Piloto> pilotos) {
+    final Map<int, List<Piloto>> grupos = {};
 
-    lista.sort((a, b) => (a.senha ?? 0).compareTo(b.senha ?? 0));
-
-    Map<int, List<Piloto>> grupos = {};
-
-    for (var piloto in lista) {
-      if (piloto.janelaId != null) {
-        int id = piloto.janelaId!;
-
-        if (!grupos.containsKey(id)) {
-          grupos[id] = [];
+    for (var p in pilotos) {
+      if (p.janelaId != null) {
+        if (!grupos.containsKey(p.janelaId)) {
+          grupos[p.janelaId!] = [];
         }
-        grupos[id]!.add(piloto);
+        grupos[p.janelaId]!.add(p);
       }
     }
     return grupos.values.toList();
@@ -126,123 +158,99 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text(
-          "CONTROLE DE VOO",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_forever, color: Colors.red),
-            onPressed: () => _mostrarConfirmacaoLimpeza(),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text("Monitoramento")),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase
-            .from('pilotos')
-            .stream(primaryKey: ['id'])
-            .order('senha', ascending: true), // O mais recente primeiro!
-
+        stream: _pilotosStream,
         builder: (context, snapshot) {
+          // 1. Verificações de carregamento e erro
+          if (snapshot.hasError)
+            return Center(child: Text("Erro: ${snapshot.error}"));
           if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
 
-          final todos = snapshot.data!
+          // 2. Converter dados brutos para Objetos Piloto
+          final dadosBrutos = snapshot.data!;
+          final todosPilotos = dadosBrutos
               .map((m) => Piloto.fromMap(m['id'], m))
               .toList();
 
-          // 1. JANELA ATUAL: Pega apenas quem tem status 'pista'
-          // Como ordenamos por updated_at DESC, os pilotos que acabaram de entrar na pista estarão no topo
-          final pilotosNaPista = todos
+          // 3. Separar: Quem é Pista vs Quem é Fila
+          // Importante: Filtramos aqui na memória para ser reativo
+          final pilotosPista = todosPilotos
               .where((p) => p.status == 'pista')
               .toList();
-          final janelasNaPista = _agruparPorJanela(pilotosNaPista);
+          final pilotosFila = todosPilotos
+              .where((p) => p.status == 'aguardando')
+              .toList();
 
-          // A Janela Atual será sempre o primeiro grupo da lista de pista
-          final janelaAtual = janelasNaPista.isNotEmpty
-              ? janelasNaPista[0]
-              : <Piloto>[];
+          // 4. Agrupar a fila em janelas (ex: [Jatos, Helis])
+          final janelasFila = _agruparPorJanela(pilotosFila);
+          final janelaAtual = _agruparPorJanela(pilotosPista);
 
-          // 2. PRÓXIMAS JANELAS:
-          // Inclui: outras categorias que por acaso estejam na pista + todos que estão 'aguardando'
-          final janelasFila = _agruparPorJanela(
-            todos.where((p) => p.status == 'aguardando').toList(),
-          );
-
-          final proximasJanelas = [
-            if (janelasNaPista.length > 1) ...janelasNaPista.sublist(1),
-            ...janelasFila,
-          ];
-
-          return SingleChildScrollView(
-            child: Column(
-              children: [
+          return Column(
+            children: [
+              // --- JANELA ATUAL (PISTA) ---
+              if (janelaAtual.isNotEmpty)
                 _buildCardJanela(
-                  titulo: "JANELA ATUAL",
+                  titulo:
+                      "AGORA: ${janelaAtual.first.first.categoria.toUpperCase()}",
                   corDestaque: _getCorPorCategoria(
-                    janelaAtual.isNotEmpty ? janelaAtual[0].categoria : null,
+                    janelaAtual.first.first.categoria,
+                  ), // Cor de destaque
+                  pilotos: janelaAtual.first,
+                  isFila: false,
+                  // Aqui chamamos a função que finaliza e puxa o próximo
+                  onFinalizar: () => _service.finalizarEPromoverProxima(
+                    janelaAtual.first.first.janelaId!,
                   ),
-                  pilotos: janelaAtual,
-                  vazioTexto: "AGUARDANDO CHAMADA",
-                  onFinalizar: janelaAtual.isNotEmpty
-                      ? () => finalizarJanelaAtual(janelaAtual[0].janelaId ?? 0)
-                      : null,
+                )
+              else
+                const SizedBox(
+                  height: 150,
+                  child: Center(
+                    child: Text(
+                      "PISTA LIVRE",
+                      style: TextStyle(fontSize: 20, color: Colors.grey),
+                    ),
+                  ),
                 ),
 
-                _buildTimerSection(),
+              const Divider(),
 
-                const SizedBox(height: 20),
-                const Text(
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
                   "Próximas Janelas",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
+              ),
 
-                // --- CARROSSEL ---
-                SizedBox(
-                  height: 380,
-                  child: proximasJanelas.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "FILA VAZIA",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        )
-                      : PageView.builder(
-                          controller: _pageController,
-                          onPageChanged: (page) =>
-                              setState(() => _paginaAtual = page),
-                          itemCount: proximasJanelas.length,
-                          itemBuilder: (context, index) {
-                            final grupo = proximasJanelas[index];
-                            return _buildCardJanela(
-                              titulo:
-                                  "PRÓXIMA: ${grupo[0].categoria.toUpperCase()}",
-                              corDestaque: _getCorPorCategoria(
-                                grupo[0].categoria,
-                              ),
-                              pilotos: grupo,
-                            );
-                          },
-                        ),
-                ),
-
-                // Indicador de bolinhas
-                if (proximasJanelas.length > 1)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      proximasJanelas.length,
-                      (index) => _buildDot(index == _paginaAtual),
-                    ),
-                  ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              // --- CARROSSEL DA FILA ---
+              Expanded(
+                child: janelasFila.isEmpty
+                    ? const Center(child: Text("Sem janelas na fila"))
+                    : PageView.builder(
+                        controller: _pageController,
+                        itemCount: janelasFila.length,
+                        itemBuilder: (context, index) {
+                          final grupo = janelasFila[index];
+                          return _buildCardJanela(
+                            titulo: grupo.first.categoria.toUpperCase(),
+                            corDestaque: _getCorPorCategoria(
+                              grupo.first.categoria,
+                            ),
+                            pilotos: grupo,
+                            isFila: true,
+                            // Aqui chamamos apenas a exclusão
+                            onFinalizar: () =>
+                                _service.cancelarOuFinalizarJanela(
+                                  grupo.first.janelaId!,
+                                ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),
@@ -255,6 +263,7 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
     required List<Piloto> pilotos,
     String? vazioTexto,
     VoidCallback? onFinalizar,
+    bool isFila = false,
   }) {
     return Container(
       margin: const EdgeInsets.all(15),
@@ -269,35 +278,36 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                Expanded(
+                  child: Text(
+                    titulo,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
+
+                const SizedBox(width: 10),
+
                 if (onFinalizar != null && pilotos.isNotEmpty)
                   ElevatedButton(
                     onPressed: onFinalizar,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      minimumSize: const Size(0, 30),
                     ),
-                    child: const Text(
-                      "FINALIZAR",
-                      style: TextStyle(
+                    child: Text(
+                      pilotos.first.status == 'pista' ? "FINALIZAR" : "EXCLUIR",
+                      style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  )
-                else
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text(
-                      "Editar",
-                      style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
                 TextButton(
@@ -310,6 +320,7 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
               ],
             ),
           ),
+
           Container(
             margin: const EdgeInsets.fromLTRB(15, 0, 15, 20),
             padding: const EdgeInsets.all(10),
@@ -443,5 +454,16 @@ class _MonitoramentoJanelaPageState extends State<MonitoramentoJanelaPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _tratarExclusao(int janelaId) async {
+    try {
+      await _supabase.from('pilotos').delete().eq('janela_id', janelaId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Janela excluída com sucesso!")),
+      );
+    } catch (e) {
+      print("Erro ao excluir janela: $e");
+    }
   }
 }

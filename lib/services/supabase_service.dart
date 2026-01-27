@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/piloto.dart';
 
@@ -49,6 +50,34 @@ class SupabaseService {
         .from('pilotos')
         .update({'status': 'pista'})
         .inFilter('id', ids); // O comando in_ seleciona todos os IDs da lista
+  }
+
+  Future<void> finalizarEPromoverProxima(int janelaIdAtual) async {
+    // 1. Tira a janela atual da pista (move para concluído)
+    await _supabase
+        .from('pilotos')
+        .update({'status': 'concluido'})
+        .eq('janela_id', janelaIdAtual);
+
+    // 2. Procura QUALQUER piloto que esteja aguardando
+    // Ordenamos por updated_at (o mais antigo primeiro = o primeiro da fila)
+    final response = await _supabase
+        .from('pilotos')
+        .select('janela_id')
+        .eq('status', 'aguardando')
+        .order('updated_at', ascending: true) // O segredo está aqui
+        .limit(1);
+
+    // 3. Se achou alguém na fila...
+    if ((response as List).isNotEmpty) {
+      final proximoId = response[0]['janela_id'];
+
+      // ...Promove TODOS desse grupo para a pista
+      await _supabase
+          .from('pilotos')
+          .update({'status': 'pista'})
+          .eq('janela_id', proximoId);
+    }
   }
 
   Future<void> gerarNovaSenhaVoo({
@@ -105,11 +134,40 @@ class SupabaseService {
         );
   }
 
-  // Método para quando o piloto terminar o voo e sair do telão
-  Future<void> finalizarVoo(String id) async {
+  Future<void> cancelarOuFinalizarJanela(int janelaId) async {
     await _supabase
         .from('pilotos')
-        .update({'status': 'finalizado'})
-        .eq('id', id);
+        .update({
+          'status': 'inscrito',
+          'janela_id': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('janela_id', janelaId);
+  }
+
+  Future<void> _tratarExclusao(BuildContext context, int janelaId) async {
+    // Mostra um alerta de confirmação
+    bool? confirmar = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Excluir Janela"),
+        content: const Text("Deseja remover este grupo da fila?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Não"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Sim"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      // Volta os pilotos para 'inscrito' e limpa o janela_id
+      await cancelarOuFinalizarJanela(janelaId);
+    }
   }
 }

@@ -115,7 +115,7 @@ class ControleJanelaPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MonitoramentoJanelaPage(),
+                    builder: (context) => const MonitoramentoPage(),
                   ),
                 );
               },

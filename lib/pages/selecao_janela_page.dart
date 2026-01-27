@@ -104,7 +104,7 @@ class _SelecaoJanelaPageState extends State<SelecaoJanelaPage> {
             ),
           ),
 
-          // Lista de Pilotos
+          // Lis de Pilotos
           Expanded(
             child: ListView.builder(
               itemCount: _pilotosNaVila.length,
