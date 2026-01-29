@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:ffi' hide Size;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/piloto.dart'; 
+import '../models/piloto.dart';
+import 'editar_janela_page.dart';
 import '../services/supabase_service.dart';
 
 class MonitoramentoPage extends StatefulWidget {
@@ -30,6 +31,10 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   int _paginaAtual = 0;
   List<List<Piloto>> proximasJanelas = [];
 
+  List<List<Piloto>> janelaAtual = [];
+  List<List<Piloto>> janelasFila = [];
+  bool _carregando = false;
+
   Color _getCorPorCategoria(String? categoria) {
     if (categoria == null) return Colors.grey;
     final cat = categoria.toLowerCase();
@@ -37,6 +42,12 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     if (cat.contains("escala")) return const Color(0xFF3498DB);
     if (cat.contains("jato")) return const Color(0xFF2ECC71);
     return Colors.blueGrey;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarJanelas();
   }
 
   @override
@@ -65,12 +76,54 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     setState(() => _estaRodando = !_estaRodando);
   }
 
-  void _reiniciarTimer() {
-    setState(() {
-      _timer?.cancel();
-      _estaRodando = false;
-      _segundosRestantes = 600; // Volta para 10 minutos
-    });
+  Future<void> _carregarJanelas() async {
+    setState(() => _carregando = true);
+
+    try {
+      // 1. Busca todos os pilotos que possuem um janela_id atribuído
+      // Filtramos apenas por status que não sejam 'finalizado' (ajuste conforme seu banco)
+      final response = await _supabase
+          .from('pilotos')
+          .select()
+          .not('janela_id', 'is', null)
+          .order('janela_id', ascending: true);
+
+      final List<Piloto> todosPilotosComJanela = (response as List)
+          .map((p) => Piloto.fromMap(p['id'], p))
+          .toList();
+
+      // 2. Agrupar os pilotos por ID da Janela
+      Map<int, List<Piloto>> grupos = {};
+      for (var piloto in todosPilotosComJanela) {
+        if (!grupos.containsKey(piloto.janelaId)) {
+          grupos[piloto.janelaId!] = [];
+        }
+        grupos[piloto.janelaId]!.add(piloto);
+      }
+
+      // 3. Transformar o Map em uma lista de listas ordenada por ID da janela
+      List<List<Piloto>> todasJanelas = grupos.values.toList();
+      todasJanelas.sort(
+        (a, b) => a.first.janelaId!.compareTo(b.first.janelaId!),
+      );
+
+      setState(() {
+        if (todasJanelas.isNotEmpty) {
+          // A primeira janela da lista (menor ID) é a que está na pista agora
+          janelaAtual = [todasJanelas.first];
+
+          // As demais janelas vão para a fila de "Próximas"
+          janelasFila = todasJanelas.skip(1).toList();
+        } else {
+          janelaAtual = [];
+          janelasFila = [];
+        }
+        _carregando = false;
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar monitoramento: $e");
+      setState(() => _carregando = false);
+    }
   }
 
   Future<void> _excluirJanela(int janelaId) async {
@@ -234,14 +287,31 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
                   itemCount: janelasFila.length,
                   itemBuilder: (context, index) {
                     final grupo = janelasFila[index];
+
                     return _buildCardJanela(
                       titulo: grupo.first.categoria.toUpperCase(),
                       corDestaque: _getCorPorCategoria(grupo.first.categoria),
-                      pilotos: grupo,
+                      pilotos: grupo.reversed.toList(),
                       isFila: true,
                       onFinalizar: () => _service.cancelarOuFinalizarJanela(
                         grupo.first.janelaId!,
                       ),
+                      onEditar: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditarJanelaPage(
+                              janelaId: grupo.first.janelaId!,
+                              categoria: grupo.first.categoria,
+                              corTema: _getCorPorCategoria(
+                                grupo.first.categoria,
+                              ),
+                              pilotosIniciais: grupo,
+                            ),
+                          ),
+                        );
+                        if (result == true) _carregarJanelas();
+                      },
                     );
                   },
                 ),
@@ -259,6 +329,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     required List<Piloto> pilotos,
     Widget? widgetAdicional,
     VoidCallback? onFinalizar,
+    VoidCallback? onEditar,
     bool isFila = false,
   }) {
     return Container(
@@ -288,11 +359,28 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (onFinalizar != null)
-                      ElevatedButton(
-                        onPressed: onFinalizar,
-                        child: Text(isFila ? "EXCLUIR" : "FINALIZAR"),
-                      ),
+
+                    Row(
+                      children: [
+                        if (isFila && onEditar != null)
+                          ElevatedButton(
+                            onPressed: onEditar,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: corDestaque,
+                            ),
+                            child: const Text("EDITAR"),
+                          ),
+
+                        if (onFinalizar != null) ...[
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: onFinalizar,
+                            child: Text(isFila ? "EXCLUIR" : "FINALIZAR"),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
                 if (widgetAdicional != null) ...[

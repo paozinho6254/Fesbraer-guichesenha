@@ -120,14 +120,6 @@ class ControleJanelaPage extends StatelessWidget {
                 );
               },
             ),
-
-            const SizedBox(height: 10),
-
-            _buildManagementButton(
-              label: "Editar Janelas Presentes",
-              icon: Icons.edit,
-              onTap: () => print("Editar"),
-            ),
             const SizedBox(height: 30), // Margem inferior
           ],
         ),

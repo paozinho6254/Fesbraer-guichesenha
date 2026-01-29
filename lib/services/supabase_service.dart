@@ -5,6 +5,28 @@ import '../models/piloto.dart';
 class SupabaseService {
   final _supabase = Supabase.instance.client;
 
+  Future<void> atualizarMembrosJanela({
+    required int janelaId,
+    required List<Piloto> membrosAtuais,
+    required List<Piloto> membrosRemovidos,
+  }) async {
+    // 1. Remove quem saiu da janela
+    for (var p in membrosRemovidos) {
+      await _supabase
+          .from('pilotos')
+          .update({'janela_id': null})
+          .eq('id', p.id);
+    }
+
+    // 2. Adiciona quem entrou na janela
+    for (var p in membrosAtuais) {
+      await _supabase
+          .from('pilotos')
+          .update({'janela_id': janelaId})
+          .eq('id', p.id);
+    }
+  }
+
   // Função para cadastrar o piloto vindo do Sympla (Cadastro Base)
   Future<void> cadastrarPilotoBase(String nome, String telefone) async {
     await _supabase.from('pilotos').insert({
@@ -50,6 +72,10 @@ class SupabaseService {
         .from('pilotos')
         .update({'status': 'pista'})
         .inFilter('id', ids); // O comando in_ seleciona todos os IDs da lista
+  }
+
+  Future<void> excluirPiloto(int id) async {
+    await _supabase.from('pilotos').delete().eq('id', id);
   }
 
   Future<void> finalizarEPromoverProxima(int janelaIdAtual) async {
