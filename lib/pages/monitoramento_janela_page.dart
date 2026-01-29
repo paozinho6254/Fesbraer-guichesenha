@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi' hide Size;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/piloto.dart';
@@ -286,12 +285,13 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
                       const NeverScrollableScrollPhysics(), // O scroll será controlado pelo pai
                   itemCount: janelasFila.length,
                   itemBuilder: (context, index) {
-                    final grupo = janelasFila[index];
+                    final grupo = [...janelasFila[index]]
+                      ..sort((a, b) => (a.senha ?? 0).compareTo(b.senha ?? 0));
 
                     return _buildCardJanela(
                       titulo: grupo.first.categoria.toUpperCase(),
                       corDestaque: _getCorPorCategoria(grupo.first.categoria),
-                      pilotos: grupo.reversed.toList(),
+                      pilotos: grupo,
                       isFila: true,
                       onFinalizar: () => _service.cancelarOuFinalizarJanela(
                         grupo.first.janelaId!,
@@ -519,34 +519,6 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
       decoration: BoxDecoration(
         color: active ? Colors.black : Colors.grey,
         shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  void _mostrarConfirmacaoLimpeza() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Limpar Sistema?"),
-        content: const Text(
-          "Isso apagará TODOS os pilotos e janelas. Esta ação não pode ser desfeita.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
-          TextButton(
-            onPressed: () {
-              _limparSistema();
-              Navigator.pop(context);
-            },
-            child: const Text(
-              "LIMPAR TUDO",
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
       ),
     );
   }

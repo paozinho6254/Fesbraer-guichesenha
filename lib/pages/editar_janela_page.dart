@@ -146,6 +146,7 @@ class _EditarJanelaPageState extends State<EditarJanelaPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool podeSalvar = _pilotosNaJanela.isNotEmpty && !_carregando;
     return Scaffold(
       appBar: AppBar(
         title: Text("Editar Fila: ${widget.categoria.toUpperCase()}"),
@@ -179,7 +180,7 @@ class _EditarJanelaPageState extends State<EditarJanelaPage> {
                   Colors.blueGrey,
                 ),
                 Expanded(
-                  flex: 2, // Dá mais espaço para a fila de espera
+                  flex: 2,
                   child: ListView(
                     children: _pilotosDisponiveis
                         .map((p) => _buildTilePiloto(p, isInJanela: false))
@@ -193,16 +194,23 @@ class _EditarJanelaPageState extends State<EditarJanelaPage> {
                   child: SizedBox(
                     width: double.infinity,
                     height: 55,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.corTema,
-                      ),
-                      onPressed: _salvarAlteracoes,
-                      child: const Text(
-                        "CONFIRMAR ALTERAÇÕES",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                    child: Opacity(
+                      opacity: podeSalvar ? 1.0 : 0.5,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: widget.corTema,
+                          disabledBackgroundColor: widget.corTema.withOpacity(
+                            0.3,
+                          ),
+                        ),
+                        // Se podeSalvar for falso, o onPressed recebe NULL, desativando o botão
+                        onPressed: podeSalvar ? _salvarAlteracoes : null,
+                        child: Text(
+                          _carregando ? "SALVANDO..." : "CONFIRMAR ALTERAÇÕES",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -235,23 +243,22 @@ class _EditarJanelaPageState extends State<EditarJanelaPage> {
 
   Widget _buildTilePiloto(Piloto piloto, {required bool isInJanela}) {
     return ListTile(
-      // Removido o CircleAvatar, usando um SizedBox para alinhar o texto
       leading: SizedBox(
-        width: 45,
+        width: 50,
         child: Center(
           child: Text(
             "${piloto.senha}",
             style: TextStyle(
-              fontSize: 24, // Senha bem grande
-              fontWeight: FontWeight.bold, // Bem negrito
-              color: widget.corTema.withOpacity(isInJanela ? 1 : 0.6),
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
         ),
       ),
       title: Text(
         piloto.nome,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
       subtitle: Text(piloto.telefone),
       trailing: Row(
@@ -267,7 +274,6 @@ class _EditarJanelaPageState extends State<EditarJanelaPage> {
               icon: const Icon(Icons.add_circle_outline, color: Colors.green),
               onPressed: () => _adicionarNaJanela(piloto),
             ),
-            // Botão excluir (Lixeira) para remover do evento
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => _confirmarExclusao(piloto),
