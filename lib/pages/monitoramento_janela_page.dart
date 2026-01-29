@@ -13,7 +13,7 @@ class MonitoramentoPage extends StatefulWidget {
 
 class _MonitoramentoPageState extends State<MonitoramentoPage> {
   final SupabaseService _service = SupabaseService();
-  final PageController _pageController = PageController(viewportFraction: 0.9);
+  final PageController _pageController = PageController(viewportFraction: 0.9); 
 
   // Fluxo de dados em tempo real
   final _pilotosStream = Supabase.instance.client

@@ -78,27 +78,23 @@ class SupabaseService {
     await _supabase.from('pilotos').delete().eq('id', id);
   }
 
+  /* oia aqui OOOOOOOOOOOOOOOOOOOO */
   Future<void> finalizarEPromoverProxima(int janelaIdAtual) async {
-    // 1. Tira a janela atual da pista (move para concluído)
     await _supabase
         .from('pilotos')
-        .update({'status': 'concluido'})
+        .update({'status': 'concluido', 'janela_id': null})
         .eq('janela_id', janelaIdAtual);
 
-    // 2. Procura QUALQUER piloto que esteja aguardando
-    // Ordenamos por updated_at (o mais antigo primeiro = o primeiro da fila)
     final response = await _supabase
         .from('pilotos')
         .select('janela_id')
         .eq('status', 'aguardando')
-        .order('updated_at', ascending: true) // O segredo está aqui
+        .order('updated_at', ascending: true)
         .limit(1);
 
-    // 3. Se achou alguém na fila...
     if ((response as List).isNotEmpty) {
       final proximoId = response[0]['janela_id'];
 
-      // ...Promove TODOS desse grupo para a pista
       await _supabase
           .from('pilotos')
           .update({'status': 'pista'})
@@ -209,14 +205,11 @@ class SupabaseService {
         );
   }
 
+  /* oia aqui OOOOOOOOOOOOOOOOOOOO */
   Future<void> cancelarOuFinalizarJanela(int janelaId) async {
     await _supabase
         .from('pilotos')
-        .update({
-          'status': 'inscrito',
-          'janela_id': null,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
+        .update({'janela_id': null})
         .eq('janela_id', janelaId);
   }
 
