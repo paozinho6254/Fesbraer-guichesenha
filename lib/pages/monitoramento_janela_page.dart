@@ -13,7 +13,7 @@ class MonitoramentoPage extends StatefulWidget {
 
 class _MonitoramentoPageState extends State<MonitoramentoPage> {
   final SupabaseService _service = SupabaseService();
-  final PageController _pageController = PageController(viewportFraction: 0.9); 
+  final PageController _pageController = PageController(viewportFraction: 0.9);
 
   // Fluxo de dados em tempo real
   final _pilotosStream = Supabase.instance.client
@@ -57,22 +57,39 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   // --- LÓGICA DO TIMER ---
-  void _alternarTimer() {
-    if (_estaRodando) {
-      _timer?.cancel();
-    } else {
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        setState(() {
-          if (_segundosRestantes > 0) {
-            _segundosRestantes--;
-          } else {
-            _timer?.cancel();
-            _estaRodando = false;
-          }
+  void _alternarTimer(int idDaJanelaAtual) async {
+    try {
+      if (_estaRodando) {
+        _timer?.cancel();
+        // Opcional: Avisar ao banco que parou (se sua lógica permitir pausar)
+        setState(() => _estaRodando = false);
+      } else {
+        final agora = DateTime.now().toIso8601String();
+        // Opcional: Limpar no banco se quiser que o cronômetro suma da TV
+        await _supabase
+            .from('pilotos')
+            .update({'inicio_atendimento': agora})
+            .eq('janela_id', idDaJanelaAtual);
+
+        // 2. Mantém o timer local apenas para atualizar a UI do seu celular
+        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          setState(() {
+            if (_segundosRestantes > 0) {
+              _segundosRestantes--;
+            } else {
+              _timer?.cancel();
+              _estaRodando = false;
+            }
+          });
         });
-      });
+      }
+
+      setState(() => _estaRodando = !_estaRodando);
+    } catch (e) {
+      // Se a internet falhar, você avisa o operador
+      print('Erro ao sincronizar cronômetro: $e');
+      // Aqui você pode mostrar um SnackBar ou alerta
     }
-    setState(() => _estaRodando = !_estaRodando);
   }
 
   Future<void> _carregarJanelas() async {
@@ -459,7 +476,17 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
               ),
               const SizedBox(width: 15),
               IconButton(
-                onPressed: _alternarTimer,
+                onPressed: () {
+                  if (janelaAtual.isNotEmpty && janelaAtual.first.isNotEmpty) {
+                    final id = janelaAtual.first.first.janelaId;
+                    if (id != null) {
+                      _alternarTimer(id);
+                    }
+                  } else {
+                    // Opcional: mostrar um aviso que não há janela ativa
+                    print("Nenhuma janela ativa para iniciar o timer");
+                  }
+                },
                 icon: Icon(
                   _estaRodando
                       ? Icons.pause_circle_filled
