@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../services/supabase_service.dart'; // 1. Importe o pacote
+import 'home_page.dart';
+import '../services/supabase_service.dart';
 
 class CadastroBasePage extends StatefulWidget {
   const CadastroBasePage({super.key});
@@ -58,6 +58,12 @@ class _CadastroBasePageState extends State<CadastroBasePage> {
             content: Text("✅ Piloto cadastrado!"),
             backgroundColor: Colors.green,
           ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const HomePage(),
+          ), // Certifique-se de importar a sua HomePage
         );
       }
     } catch (e) {

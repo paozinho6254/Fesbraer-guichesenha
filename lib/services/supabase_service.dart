@@ -110,8 +110,6 @@ class SupabaseService {
     // Criamos um ID único para este grupo (janela)
     final int janelaId = DateTime.now().millisecondsSinceEpoch;
 
-    // Preparamos as atualizações para cada piloto
-    // Usamos Future.wait para disparar todas as atualizações ao mesmo tempo
     await Future.wait(
       pilotos.map((piloto) {
         return _supabase
