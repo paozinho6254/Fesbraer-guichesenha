@@ -7,9 +7,6 @@ class ControleJanelaPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Valores estáticos (Mock) para os contadores.
-    // Documentação: No futuro, estes valores virão de uma variável de estado
-    // alimentada por uma chamada de API (ex: pilots.where((p) => p.category == 'acro').length)
     int acroCount = 0;
     int jatosCount = 0;
     int escalaCount = 0;
