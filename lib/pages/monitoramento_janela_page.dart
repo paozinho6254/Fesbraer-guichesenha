@@ -27,6 +27,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   Timer? _timer;
   int _segundosRestantes = 600; // 10 minutos padrão
   bool _estaRodando = false;
+  int? _janelaIdAntiga;
   int _paginaAtual = 0;
   List<List<Piloto>> proximasJanelas = [];
 
@@ -57,39 +58,90 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   // --- LÓGICA DO TIMER ---
-  void _alternarTimer(int idDaJanelaAtual) async {
-    try {
-      if (_estaRodando) {
-        _timer?.cancel();
-        // Opcional: Avisar ao banco que parou (se sua lógica permitir pausar)
-        setState(() => _estaRodando = false);
-      } else {
-        final agora = DateTime.now().toIso8601String();
-        // Opcional: Limpar no banco se quiser que o cronômetro suma da TV
-        await _supabase
-            .from('pilotos')
-            .update({'inicio_atendimento': agora})
-            .eq('janela_id', idDaJanelaAtual);
+  void _alternarTimer(int idDaJanelaAtual) {
+    final novoEstado = !_estaRodando;
+    setState(() => _estaRodando = novoEstado);
 
-        // 2. Mantém o timer local apenas para atualizar a UI do seu celular
-        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() {
-            if (_segundosRestantes > 0) {
-              _segundosRestantes--;
-            } else {
-              _timer?.cancel();
-              _estaRodando = false;
-            }
-          });
+    if (novoEstado) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() {
+          if (_segundosRestantes > 0) {
+            _segundosRestantes--;
+          } else {
+            _timer?.cancel();
+            _estaRodando = false;
+            _sincronizarComBanco(idDaJanelaAtual, false);
+          }
+        });
+      });
+    } else {
+      _timer?.cancel();
+    }
+
+    _sincronizarComBanco(idDaJanelaAtual, novoEstado);
+  }
+
+  void _sincronizarComBanco(int idDaJanela, bool rodando) async {
+    try {
+      final tempoFinal = DateTime.now().add(
+        Duration(seconds: _segundosRestantes),
+      );
+
+      await _supabase
+          .from('pilotos')
+          .update({
+            'timer_final': rodando ? tempoFinal.toIso8601String() : null,
+            'timer_ativo': rodando,
+            'segundos_restantes': _segundosRestantes, // Salva o estado atual
+          })
+          .eq('janela_id', idDaJanela);
+    } catch (e) {
+      debugPrint('Erro ao sincronizar com banco: $e');
+    }
+  }
+
+  void _sincronizarRelogioLocal(Piloto p) {
+    if (p.timerAtivo == true && p.timerFinal != null) {
+      // O timer está rodando no banco!
+      final agora = DateTime.now();
+      final dataFinal = DateTime.parse(p.timerFinal!);
+
+      // Calcula a diferença entre agora e o fim
+      final diferenca = dataFinal.difference(agora).inSeconds;
+
+      setState(() {
+        if (diferenca > 0) {
+          _segundosRestantes = diferenca;
+          _estaRodando = true;
+          _iniciarTimerLocal(); // Inicia o Timer.periodic para atualizar a UI
+        } else {
+          _segundosRestantes = 0;
+          _estaRodando = false;
+        }
+      });
+    } else {
+      // O timer está pausado ou não começou
+      setState(() {
+        _segundosRestantes = p.segundosRestantes;
+        _estaRodando = false;
+      });
+    }
+  }
+
+  void _iniciarTimerLocal() {
+    _timer?.cancel(); // Limpa qualquer timer anterior por segurança
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_segundosRestantes > 0) {
+            _segundosRestantes--;
+          } else {
+            _timer?.cancel();
+            _estaRodando = false;
+          }
         });
       }
-
-      setState(() => _estaRodando = !_estaRodando);
-    } catch (e) {
-      // Se a internet falhar, você avisa o operador
-      print('Erro ao sincronizar cronômetro: $e');
-      // Aqui você pode mostrar um SnackBar ou alerta
-    }
+    });
   }
 
   Future<void> _carregarJanelas() async {
@@ -130,6 +182,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
 
           // As demais janelas vão para a fila de "Próximas"
           janelasFila = todasJanelas.skip(1).toList();
+          _sincronizarRelogioLocal(janelaAtual.first.first);
         } else {
           janelaAtual = [];
           janelasFila = [];
@@ -210,15 +263,27 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Future<void> finalizarJanelaAtual(int idDaJanela) async {
+    _timer?.cancel();
+    _timer = null;
     try {
       await _supabase
           .from('pilotos')
-          .update({'status': 'concluido'}) // Marca como finalizado
+          .update({
+            'janela_id': null, // Remove da fila/pista
+            'timer_ativo': false, // Desliga o timer
+            'timer_final': null, // Limpa a âncora de tempo
+            'segundos_restantes': 600, // Volta para os 10 minutos padrão
+            'status': 'finalizado',
+          })
           .eq('janela_id', idDaJanela); // Filtra pelo ID do lote todo
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Janela finalizada com sucesso!")),
-      );
+      if (mounted) {
+        setState(() {
+          _estaRodando = false;
+          _segundosRestantes = 600;
+        });
+      }
+      print("Janela finalizada e banco limpo!");
     } catch (e) {
       print("Erro ao finalizar: $e");
     }
@@ -453,12 +518,14 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Widget _buildTimerSection() {
+    final int? idAtivo = janelaAtual.isNotEmpty
+        ? janelaAtual.first.first.janelaId
+        : null;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(
-          0.1,
-        ), // Um fundo leve para destacar o timer
+        color: Colors.black.withOpacity(0.1),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
@@ -469,24 +536,15 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
               Text(
                 _formatarTempo(_segundosRestantes),
                 style: const TextStyle(
-                  fontSize: 48, // Tamanho grande para o visor
+                  fontSize: 48,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
               const SizedBox(width: 15),
               IconButton(
-                onPressed: () {
-                  if (janelaAtual.isNotEmpty && janelaAtual.first.isNotEmpty) {
-                    final id = janelaAtual.first.first.janelaId;
-                    if (id != null) {
-                      _alternarTimer(id);
-                    }
-                  } else {
-                    // Opcional: mostrar um aviso que não há janela ativa
-                    print("Nenhuma janela ativa para iniciar o timer");
-                  }
-                },
+                onPressed: () =>
+                    idAtivo != null ? _alternarTimer(idAtivo) : null,
                 icon: Icon(
                   _estaRodando
                       ? Icons.pause_circle_filled
@@ -497,31 +555,42 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
               ),
             ],
           ),
-          // Botões de ajuste de tempo
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Botão de Menos
               IconButton(
                 icon: const Icon(
                   Icons.remove_circle_outline,
                   color: Colors.white70,
                 ),
-                onPressed: () => setState(
-                  () => _segundosRestantes = _segundosRestantes >= 60
-                      ? _segundosRestantes - 60
-                      : 0,
-                ),
+                onPressed: () {
+                  if (idAtivo != null) {
+                    setState(
+                      () => _segundosRestantes = _segundosRestantes >= 60
+                          ? _segundosRestantes - 60
+                          : 0,
+                    );
+                    _sincronizarComBanco(idAtivo, _estaRodando);
+                  }
+                },
               ),
               const Text(
                 "AJUSTAR TEMPO",
                 style: TextStyle(color: Colors.white70, fontSize: 10),
               ),
+              // Botão de Mais
               IconButton(
                 icon: const Icon(
                   Icons.add_circle_outline,
                   color: Colors.white70,
                 ),
-                onPressed: () => setState(() => _segundosRestantes += 60),
+                onPressed: () {
+                  if (idAtivo != null) {
+                    setState(() => _segundosRestantes += 60);
+                    _sincronizarComBanco(idAtivo, _estaRodando);
+                  }
+                },
               ),
             ],
           ),
@@ -551,27 +620,25 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Future<void> _tratarBotaoFinalizar(int janelaId) async {
+    _timer?.cancel();
+    _timer = null;
+    setState(() {
+      _estaRodando = false;
+      _segundosRestantes = 600;
+    });
     try {
-      // 1. Para o timer visualmente antes de começar a transição
-      setState(() {
-        _estaRodando = false;
-        _timer?.cancel();
-      });
-
-      // 2. Chama o serviço que muda os status no Supabase
-      // Isso vai disparar o StreamBuilder automaticamente
       await _service.finalizarEPromoverProxima(janelaId);
 
-      // 3. Reseta o timer para a próxima janela que vai subir
-      setState(() {
-        _segundosRestantes = 600; // 10 minutos ou seu tempo padrão
-      });
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _carregarJanelas();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Janela concluída e próxima chamada!")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Janela concluída!")));
+      }
     } catch (e) {
-      print("Erro ao finalizar janela: $e");
+      debugPrint("Erro ao finalizar janela: $e");
     }
   }
 }
