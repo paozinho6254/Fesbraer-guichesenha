@@ -27,6 +27,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   Timer? _timer;
   int _segundosRestantes = 600; // 10 minutos padrão
   bool _estaRodando = false;
+  int? _janelaIdAntiga;
   int _paginaAtual = 0;
   List<List<Piloto>> proximasJanelas = [];
 
@@ -58,10 +59,10 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
 
   // --- LÓGICA DO TIMER ---
   void _alternarTimer(int idDaJanelaAtual) {
-    setState(() => _estaRodando = !_estaRodando);
+    final novoEstado = !_estaRodando;
+    setState(() => _estaRodando = novoEstado);
 
-    if (_estaRodando) {
-      // INICIAR (PLAY)
+    if (novoEstado) {
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         setState(() {
           if (_segundosRestantes > 0) {
@@ -69,17 +70,15 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
           } else {
             _timer?.cancel();
             _estaRodando = false;
-            _sincronizarComBanco(idDaJanelaAtual, false); // Avisa que acabou
+            _sincronizarComBanco(idDaJanelaAtual, false);
           }
         });
       });
     } else {
-      // PAUSAR
       _timer?.cancel();
     }
 
-    // Sincroniza o estado atual (Play ou Pause) com o Next.js
-    _sincronizarComBanco(idDaJanelaAtual, _estaRodando);
+    _sincronizarComBanco(idDaJanelaAtual, novoEstado);
   }
 
   void _sincronizarComBanco(int idDaJanela, bool rodando) async {
@@ -264,15 +263,27 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Future<void> finalizarJanelaAtual(int idDaJanela) async {
+    _timer?.cancel();
+    _timer = null;
     try {
       await _supabase
           .from('pilotos')
-          .update({'status': 'concluido'}) // Marca como finalizado
+          .update({
+            'janela_id': null, // Remove da fila/pista
+            'timer_ativo': false, // Desliga o timer
+            'timer_final': null, // Limpa a âncora de tempo
+            'segundos_restantes': 600, // Volta para os 10 minutos padrão
+            'status': 'finalizado',
+          })
           .eq('janela_id', idDaJanela); // Filtra pelo ID do lote todo
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Janela finalizada com sucesso!")),
-      );
+      if (mounted) {
+        setState(() {
+          _estaRodando = false;
+          _segundosRestantes = 600;
+        });
+      }
+      print("Janela finalizada e banco limpo!");
     } catch (e) {
       print("Erro ao finalizar: $e");
     }
@@ -609,27 +620,23 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
   }
 
   Future<void> _tratarBotaoFinalizar(int janelaId) async {
+    _timer?.cancel();
+    _timer = null;
+    setState(() {
+      _estaRodando = false;
+      _segundosRestantes = 600;
+    });
     try {
-      setState(() {
-        _estaRodando = false;
-        _timer?.cancel();
-      });
-
-      // 1. Limpa o timer no banco para a TV (Next.js) parar de exibir
-      await _supabase
-          .from('pilotos')
-          .update({'timer_final': null, 'timer_ativo': false})
-          .eq('janela_id', janelaId);
-
-      // 2. Promove a próxima janela
       await _service.finalizarEPromoverProxima(janelaId);
 
-      // 3. Reseta o tempo local para a próxima categoria que entrar
-      setState(() => _segundosRestantes = 600);
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _carregarJanelas();
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Janela concluída!")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Janela concluída!")));
+      }
     } catch (e) {
       debugPrint("Erro ao finalizar janela: $e");
     }

@@ -34,6 +34,8 @@ class SupabaseService {
       'telefone': telefone,
       'status': 'inscrito',
       'categoria': 'pendente',
+      'timer_ativo': false,
+      'segundos_restantes': 600,
     });
   }
 
@@ -82,7 +84,14 @@ class SupabaseService {
   Future<void> finalizarEPromoverProxima(int janelaIdAtual) async {
     await _supabase
         .from('pilotos')
-        .update({'status': 'concluido', 'janela_id': null})
+        .update({
+          'status': 'concluido',
+          'janela_id': null,
+          'timer_ativo': false,
+          'timer_final': null,
+          'segundos_restantes': 600,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
         .eq('janela_id', janelaIdAtual);
 
     final response = await _supabase
@@ -97,7 +106,13 @@ class SupabaseService {
 
       await _supabase
           .from('pilotos')
-          .update({'status': 'pista'})
+          .update({
+            'status': 'pista',
+            'timer_ativo': false, // ✅ false, nunca null
+            'timer_final': null,
+            'segundos_restantes': 600,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('janela_id', proximoId);
     }
   }
@@ -139,7 +154,9 @@ class SupabaseService {
       'telefone': telefone,
       'categoria': categoria,
       'senha': senha,
-      'status': 'aguardando', // Ele entra na fila
+      'status': 'aguardando',
+      'timer_ativo': false, 
+      'segundos_restantes': 600,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
