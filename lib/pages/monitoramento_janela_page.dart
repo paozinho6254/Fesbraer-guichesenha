@@ -101,6 +101,50 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
     }
   }
 
+  void _sincronizarRelogioLocal(Piloto p) {
+    if (p.timerAtivo == true && p.timerFinal != null) {
+      // O timer está rodando no banco!
+      final agora = DateTime.now();
+      final dataFinal = DateTime.parse(p.timerFinal!);
+
+      // Calcula a diferença entre agora e o fim
+      final diferenca = dataFinal.difference(agora).inSeconds;
+
+      setState(() {
+        if (diferenca > 0) {
+          _segundosRestantes = diferenca;
+          _estaRodando = true;
+          _iniciarTimerLocal(); // Inicia o Timer.periodic para atualizar a UI
+        } else {
+          _segundosRestantes = 0;
+          _estaRodando = false;
+        }
+      });
+    } else {
+      // O timer está pausado ou não começou
+      setState(() {
+        _segundosRestantes = p.segundosRestantes;
+        _estaRodando = false;
+      });
+    }
+  }
+
+  void _iniciarTimerLocal() {
+    _timer?.cancel(); // Limpa qualquer timer anterior por segurança
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_segundosRestantes > 0) {
+            _segundosRestantes--;
+          } else {
+            _timer?.cancel();
+            _estaRodando = false;
+          }
+        });
+      }
+    });
+  }
+
   Future<void> _carregarJanelas() async {
     setState(() => _carregando = true);
 
@@ -139,6 +183,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
 
           // As demais janelas vão para a fila de "Próximas"
           janelasFila = todasJanelas.skip(1).toList();
+          _sincronizarRelogioLocal(janelaAtual.first.first);
         } else {
           janelaAtual = [];
           janelasFila = [];
