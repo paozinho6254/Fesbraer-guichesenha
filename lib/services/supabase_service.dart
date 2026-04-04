@@ -108,12 +108,17 @@ class SupabaseService {
           .from('pilotos')
           .update({
             'status': 'pista',
-            'timer_ativo': false, // ✅ false, nunca null
+            'timer_ativo': false,
             'timer_final': null,
             'segundos_restantes': 600,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('janela_id', proximoId);
+      try {
+        await _supabase.functions.invoke('notificar-pilotos');
+      } catch (e) {
+        debugPrint('Erro ao notificar pilotos: $e');
+      }
     }
   }
 
@@ -155,7 +160,7 @@ class SupabaseService {
       'categoria': categoria,
       'senha': senha,
       'status': 'aguardando',
-      'timer_ativo': false, 
+      'timer_ativo': false,
       'segundos_restantes': 600,
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -228,7 +233,7 @@ class SupabaseService {
         .eq('janela_id', janelaId);
   }
 
-  Future<void> _tratarExclusao(BuildContext context, int janelaId) async {
+  Future<void> tratarExclusao(BuildContext context, int janelaId) async {
     // Mostra um alerta de confirmação
     bool? confirmar = await showDialog(
       context: context,
