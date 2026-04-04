@@ -83,7 +83,7 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
 
   void _sincronizarComBanco(int idDaJanela, bool rodando) async {
     try {
-      final tempoFinal = DateTime.now().add(
+      final tempoFinal = DateTime.now().toUtc().add(
         Duration(seconds: _segundosRestantes),
       );
 
@@ -102,25 +102,21 @@ class _MonitoramentoPageState extends State<MonitoramentoPage> {
 
   void _sincronizarRelogioLocal(Piloto p) {
     if (p.timerAtivo == true && p.timerFinal != null) {
-      // O timer está rodando no banco!
-      final agora = DateTime.now();
-      final dataFinal = DateTime.parse(p.timerFinal!);
-
-      // Calcula a diferença entre agora e o fim
+      final agora = DateTime.now().toUtc();
+      final dataFinal = DateTime.parse(p.timerFinal!).toUtc();
       final diferenca = dataFinal.difference(agora).inSeconds;
 
       setState(() {
         if (diferenca > 0) {
           _segundosRestantes = diferenca;
           _estaRodando = true;
-          _iniciarTimerLocal(); // Inicia o Timer.periodic para atualizar a UI
+          _iniciarTimerLocal();
         } else {
           _segundosRestantes = 0;
           _estaRodando = false;
         }
       });
     } else {
-      // O timer está pausado ou não começou
       setState(() {
         _segundosRestantes = p.segundosRestantes;
         _estaRodando = false;
