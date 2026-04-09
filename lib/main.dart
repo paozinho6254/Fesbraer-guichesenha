@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/home_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: ".env");
+
   try {
     await Supabase.initialize(
-      url: 'https://tyrvpporjxeeirzuffjr.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5cnZwcG9yanhlZWlyenVmZmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3ODg0MDMsImV4cCI6MjA4MjM2NDQwM30.A-p8apDRNcciUN5cdAxht2cm94_njiZ8Bnqn5GAjtN0',
+      url: dotenv.env['PUBLIC_SUPABASE_URL']!,
+      anonKey: dotenv.env['PUBLIC_SUPABASE_ANON_KEY']!,
     );
     print("✅ Supabase Conectado!");
   } catch (e) {
@@ -17,6 +20,7 @@ Future<void> main() async {
 
   runApp(const ProjetosVooApp()); // Substitua pelo nome do seu App principal
 }
+
 class ProjetosVooApp extends StatelessWidget {
   const ProjetosVooApp({super.key});
 
@@ -25,10 +29,7 @@ class ProjetosVooApp extends StatelessWidget {
     return MaterialApp(
       title: 'Fesbraer Controle',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(useMaterial3: true, primarySwatch: Colors.blue),
       home: const HomePage(),
     );
   }
