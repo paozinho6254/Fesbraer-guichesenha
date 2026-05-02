@@ -54,6 +54,7 @@ class SupabaseService {
         .from('pilotos')
         .select()
         .eq('categoria', categoria);
+        .order('senha', ascending: true);
 
     final todosOsPilotos = (response as List)
         .map((m) => Piloto.fromMap(m['id'], m))
